@@ -1,0 +1,76 @@
+local parser = require("@batteries/syntax/parser")
+local isFlagModule = require("../matchers/isFlagModule")
+
+local function test_emptyBlock()
+	local block = parser.parse([[
+
+	]])
+
+	assert(isFlagModule(block, "FlagName") == false)
+end
+
+local function test_blockWithNoReturn()
+	local block = parser.parse([[
+		local x = 1
+	]])
+
+	assert(isFlagModule(block, "FlagName") == false)
+end
+
+local function test_blockWithReturnNoExpression()
+	local block = parser.parse([[
+		return
+	]])
+
+	assert(isFlagModule(block, "FlagName") == false)
+end
+
+local function test_blockWithUnrelatedReturn()
+	local block = parser.parse([[
+		return "value"
+	]])
+
+	assert(isFlagModule(block, "FlagName") == false)
+end
+
+local function test_blockWithDefinitionReturn()
+	local block = parser.parse([[
+		return game:DefineFastFlag("FlagName")
+	]])
+
+	local result, kind = isFlagModule(block, "FlagName")
+	assert(result == true)
+	assert(kind == "constant")
+end
+
+local function test_blockWithGetReturn()
+	local block = parser.parse([[
+		return game:GetFastFlag("FlagName")
+	]])
+
+	local result, kind = isFlagModule(block, "FlagName")
+	assert(result == true)
+	assert(kind == "constant")
+end
+
+local function test_blockWithFunctionReturn()
+	local block = parser.parse([[
+		return function()
+			return game:GetFastFlag("FlagName")
+		end
+	]])
+
+	local result, kind = isFlagModule(block, "FlagName")
+	assert(result == true)
+	assert(kind == "function")
+end
+
+return function()
+	test_emptyBlock()
+	test_blockWithNoReturn()
+	test_blockWithReturnNoExpression()
+	test_blockWithUnrelatedReturn()
+	test_blockWithDefinitionReturn()
+	test_blockWithGetReturn()
+	test_blockWithFunctionReturn()
+end
