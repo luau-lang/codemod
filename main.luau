@@ -9,8 +9,24 @@ local function extend<T>(tbl: { T }, other: { T })
 	end
 end
 
+local function startsWith(str: string, prefix: string): boolean
+	if #prefix > #str then
+		return false
+	end
+
+	return str:sub(1, #prefix) == prefix
+end
+
 local function endsWith(str: string, suffix: string): boolean
 	return str:sub(-#suffix) == suffix
+end
+
+local function removePrefix(str: string, prefix: string): string
+	if not startsWith(str, prefix) then
+		return str
+	end
+
+	return str:sub(#prefix + 1)
 end
 
 local function traverseDirectoryRecursive(path: string): { string }
@@ -46,16 +62,62 @@ local function getSourceFiles(paths: { string })
 	return files
 end
 
-local function loadTransformer(path: string)
+local function loadCodemod(path: string): types.Codemod
 	local success, loaded = pcall(require, path)
 	assert(success, `{path} failed to require: {loaded}`)
 	assert(loaded, `{path} is missing a return`)
-	assert(typeof(loaded) == "function", `{path} must return a function`)
 
-	return loaded
+	if typeof(loaded) == "function" then
+		local codemod = {}
+		codemod.transform = loaded
+		return codemod :: types.Codemod -- FIXME: Luau
+	elseif typeof(loaded) == "table" then
+		assert(typeof(loaded.transform) == "function", `{path} must contain a 'transform' property of type function`)
+		if loaded.options then
+			assert(typeof(loaded.options) == "table", `Expected return of {path}.options to be a table`)
+			for _, option in loaded.options do
+				assert(typeof(option.name) == "string", `Expected option.name to be a string`)
+				assert(
+					option.kind == "string" or option.kind == "boolean",
+					`Expected option.kind to be either 'string' or 'boolean', got {option.kind}`
+				)
+				-- TODO: ensure option.name is not a built-in option
+			end
+		end
+		return loaded
+	else
+		error(`Expected '{path}' to return a function or table, got {typeof(loaded)}`)
+	end
 end
 
-local function applyTransform(transform: (types.Context) -> string, paths: { string })
+local function processCodemodOptions(codemod: types.Codemod, options: { [string]: string })
+	if codemod.options == nil then
+		return table.freeze({})
+	end
+
+	local processedOptions: { [string]: string | boolean } = {}
+
+	for _, option in codemod.options do
+		local value = options[option.name]
+		if value then
+			if option.kind == "boolean" then
+				local lowered = value:lower()
+				assert(
+					lowered == "true" or lowered == "false",
+					`Option '--{option.name}' expects a boolean value 'true' or 'false'`
+				)
+				processedOptions[option.name] = lowered == "true"
+			end
+		else
+			assert(option.default ~= nil, `Missing required option '--{option.name}'`)
+			processedOptions[option.name] = option.default
+		end
+	end
+
+	return table.freeze(processedOptions)
+end
+
+local function applyCodemod(codemod: types.Codemod, paths: { string }, options: { [string]: string | boolean })
 	for _, path in paths do
 		print(`Applying to {path}`)
 
@@ -64,10 +126,11 @@ local function applyTransform(transform: (types.Context) -> string, paths: { str
 		local ctx = {
 			path = path,
 			source = source,
+			options = options,
 		}
 
 		-- TODO: should we wrap in pcall? For now we don't do this to preserve stack trace
-		local result = transform(ctx)
+		local result = codemod.transform(ctx)
 		-- local success, result = pcall(transform, ctx)
 		-- if not success then
 		-- 	error(`Failed to apply to {path}: {result}`)
@@ -81,29 +144,59 @@ local function applyTransform(transform: (types.Context) -> string, paths: { str
 	end
 end
 
+--- Processes a set of CLI arguments into options and file paths
+local function processArguments(arguments: { string })
+	local options, filePaths = {}, {}
+
+	local i = 1
+	while i <= #arguments do
+		local argument = arguments[i]
+
+		if startsWith(argument, "--") then
+			local name = removePrefix(argument, "--")
+			i += 1
+			assert(i <= #arguments, `Missing value for '{name}'`)
+			local value = arguments[i]
+
+			options[name] = value
+		else
+			table.insert(filePaths, argument)
+		end
+
+		i += 1
+	end
+
+	return options, filePaths
+end
+
 local function main(...: string)
 	local arguments = { ... }
 
 	-- TODO: replace with proper CLI system
-	-- For now, first argument is the transformer script, whilst the rest are files to apply it on
+	-- For now, first argument is the transformer script, whilst the rest are either flags or files to apply it on
 
 	if #arguments < 2 then
-		error("Usage: main.luau <transformer script> <files...>")
+		error("Usage: main.luau <transformer script> [options...] <files...>")
 	end
 
-	local transformer = table.remove(arguments, 1)
-	assert(transformer, "ASSERTION FAILED: transformer ~= nil")
+	local codemodPath: string? = table.remove(arguments, 1)
+	assert(codemodPath, "ASSERTION FAILED: codemodPath ~= nil")
 
-	local files = getSourceFiles(arguments)
+	local options, filePaths = processArguments(arguments)
+
+	local files = getSourceFiles(filePaths)
 	if #files == 0 then
 		error("error: no source files provided")
 	end
 
-	print(`Loading transformer '{transformer}'`)
-	local transformerFunction = loadTransformer(transformer)
+	print(`Loading codemod '{codemodPath}'`)
+	local codemod = loadCodemod(codemodPath)
 
-	print("Applying transformer")
-	applyTransform(transformerFunction, files)
+	print("Processing codemod options")
+	local codemodOptions = processCodemodOptions(codemod, options)
+
+	print("Applying codemod")
+	applyCodemod(codemod, files, codemodOptions)
 end
 
 main(...)

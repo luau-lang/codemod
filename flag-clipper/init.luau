@@ -10,8 +10,6 @@ local isFlagFunction = require("./matchers/isFlagFunction")
 local simplifyExpression = require("./simplifyExpression")
 local simplifyBlock = require("./simplifyBlock")
 
-local FLAG_NAME = "FlagName"
-
 local function inplaceReplace(old: T.AstExpr, new: T.AstExpr)
 	if old == new then
 		return
@@ -26,7 +24,12 @@ local function inplaceReplace(old: T.AstExpr, new: T.AstExpr)
 	end
 end
 
-return function(ctx: codemod.Context)
+type Options = {
+	flag: string,
+	value: boolean,
+}
+
+local function transform(ctx: codemod.Context<Options>)
 	local block = parser.parse(ctx.source)
 
 	-- Steps:
@@ -99,7 +102,7 @@ return function(ctx: codemod.Context)
 	flagVisitor.visitLocalDeclaration = function(node: T.AstStatLocal)
 		for idx, variables in node.variables do
 			local value = node.values[idx]
-			if value and isFlagAccess(value.node, FLAG_NAME) then
+			if value and isFlagAccess(value.node, ctx.options.flag) then
 				flagLocalsSet[variables.node] = true
 			end
 		end
@@ -108,14 +111,14 @@ return function(ctx: codemod.Context)
 	end
 
 	flagVisitor.visitLocalFunction = function(node: T.AstStatLocalFunction)
-		if isFlagFunction.isStmtFlagFunction(node, FLAG_NAME) then
+		if isFlagFunction.isStmtFlagFunction(node, ctx.options.flag) then
 			flagLocalsSet[node.name] = true
 		end
 		return true
 	end
 
 	flagVisitor.visitFunction = function(node: T.AstStatFunction)
-		if isFlagFunction.isStmtFlagFunction(node, FLAG_NAME) then
+		if isFlagFunction.isStmtFlagFunction(node, ctx.options.flag) then
 			if node.name.tag == "local" then
 				flagLocalsSet[node.name["local"]] = true
 			elseif node.name.tag == "global" then
@@ -128,24 +131,24 @@ return function(ctx: codemod.Context)
 	-- TODO: might want to double check the complexity here, since `simplifyExpression` is also recursive
 	-- do we end up simplifying it twice?
 	flagVisitor.visitExpressionEnd = function(expression: T.AstExpr)
-		local ctx = {
-			flagName = FLAG_NAME,
+		local simplifyCtx = {
+			flagName = ctx.options.flag,
 			flagLocalsSet = flagLocalsSet,
 			globalFunctionsSet = globalFunctionsSet,
 		}
-		local newExpression = simplifyExpression(expression, ctx)
+		local newExpression = simplifyExpression(expression, simplifyCtx)
 
 		inplaceReplace(expression, newExpression)
 	end
 
 	flagVisitor.visitBlockEnd = function(block)
 		-- TODO: should we be inplace editing?
-		local ctx = {
-			flagName = FLAG_NAME,
+		local simplifyCtx = {
+			flagName = ctx.options.flag,
 			flagLocalsSet = flagLocalsSet,
 			globalFunctionsSet = globalFunctionsSet,
 		}
-		local newBlock = simplifyBlock(block, ctx)
+		local newBlock = simplifyBlock(block, simplifyCtx)
 		block.statements = newBlock.statements
 	end
 
@@ -153,3 +156,11 @@ return function(ctx: codemod.Context)
 
 	return printer.print(block) .. "\n"
 end
+
+return {
+	options = {
+		{ name = "flag", kind = "string" },
+		{ name = "value", kind = "boolean", default = true },
+	},
+	transform = transform,
+}
