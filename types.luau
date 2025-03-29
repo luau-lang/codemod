@@ -21,4 +21,6 @@ export type Codemod = {
 	transform: Transformer,
 }
 
-return {}
+return {
+	DELETION_MARKER = "$DELETION_MARKER",
+}

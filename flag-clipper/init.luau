@@ -7,6 +7,7 @@ local codemod = require("../types")
 
 local isFlagAccess = require("./matchers/isFlagAccess")
 local isFlagFunction = require("./matchers/isFlagFunction")
+local isFlagModule = require("./matchers/isFlagModule")
 local simplifyExpression = require("./simplifyExpression")
 local simplifyBlock = require("./simplifyBlock")
 
@@ -90,6 +91,11 @@ local function transform(ctx: codemod.Context<Options>)
 	--		- delete any local variables, functions, global functions marked for deletion
 	--		- perform if stmt flattening as required
 	--		- simplify 'local x; x = ...'
+
+	-- Early check: if is a flag module, mark for deletion
+	if isFlagModule(block, ctx.options.flag) then
+		return codemod.DELETION_MARKER
+	end
 
 	-- A set of AstLocals that are known to correspond to a flag access
 	-- The locals can be a constant reference, or a function definition

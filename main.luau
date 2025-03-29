@@ -126,6 +126,8 @@ local function processCodemodOptions(codemod: types.Codemod, options: { [string]
 end
 
 local function applyCodemod(codemod: types.Codemod, paths: { string }, options: { [string]: string | boolean })
+	local deletedPaths = {}
+
 	for _, path in paths do
 		print(`Applying to {path}`)
 
@@ -146,8 +148,18 @@ local function applyCodemod(codemod: types.Codemod, paths: { string }, options: 
 
 		assert(typeof(result) == "string", `Transformed expected to return string, but got {typeof(result)}`)
 
-		if not DRY_RUN then
+		if result == types.DELETION_MARKER then
+			print(`Marking {path} for deletion`)
+			table.insert(deletedPaths, path)
+		elseif not DRY_RUN then
 			fs.writestringtofile(path, result)
+		end
+	end
+
+	if not DRY_RUN then
+		for _, path in deletedPaths do
+			print(`Deleting {path}`)
+			fs.remove(path)
 		end
 	end
 end

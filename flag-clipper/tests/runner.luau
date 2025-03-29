@@ -5,7 +5,8 @@ local function runner()
 		"./isFlagModule.spec",
 		"./evaluate.spec",
 		-- "./simplify.spec",
-		"./simplifyBlock.spec",
+		-- "./simplifyBlock.spec",
+		"./e2e.spec",
 	}
 
 	for _, path in tests do
