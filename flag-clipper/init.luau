@@ -3,6 +3,8 @@ local printer = require("@batteries/syntax/printer")
 local visitor = require("@batteries/syntax/visitor")
 local T = require("@batteries/syntax/ast_types")
 
+local codemod = require("../types")
+
 local isFlagAccess = require("./matchers/isFlagAccess")
 local isFlagFunction = require("./matchers/isFlagFunction")
 local simplifyExpression = require("./simplifyExpression")
@@ -24,7 +26,7 @@ local function inplaceReplace(old: T.AstExpr, new: T.AstExpr)
 	end
 end
 
-return function(ctx)
+return function(ctx: codemod.Context)
 	local block = parser.parse(ctx.source)
 
 	-- Steps:

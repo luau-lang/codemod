@@ -1,11 +1,7 @@
 local fs = require("@lute/fs")
+local types = require("./types")
 
 local DRY_RUN = false
-
-type Context = {
-	path: string,
-	source: string,
-}
 
 local function extend<T>(tbl: { T }, other: { T })
 	for _, entry in other do
@@ -59,7 +55,7 @@ local function loadTransformer(path: string)
 	return loaded
 end
 
-local function applyTransform(transform: (Context) -> string, paths: { string })
+local function applyTransform(transform: (types.Context) -> string, paths: { string })
 	for _, path in paths do
 		print(`Applying to {path}`)
 
