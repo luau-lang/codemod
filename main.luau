@@ -3,6 +3,10 @@ local types = require("./types")
 
 local DRY_RUN = false
 
+local function exhaustiveMatch(value: never): never
+	error(`Unknown value in exhaustive match: {value}`)
+end
+
 local function extend<T>(tbl: { T }, other: { T })
 	for _, entry in other do
 		table.insert(tbl, entry)
@@ -107,6 +111,10 @@ local function processCodemodOptions(codemod: types.Codemod, options: { [string]
 					`Option '--{option.name}' expects a boolean value 'true' or 'false'`
 				)
 				processedOptions[option.name] = lowered == "true"
+			elseif option.kind == "string" then
+				processedOptions[option.name] = value
+			else
+				exhaustiveMatch(option.kind)
 			end
 		else
 			assert(option.default ~= nil, `Missing required option '--{option.name}'`)

@@ -32,6 +32,8 @@ type Options = {
 local function transform(ctx: codemod.Context<Options>)
 	local block = parser.parse(ctx.source)
 
+	print(`Removing {ctx.options.flag} as {ctx.options.value}`)
+
 	-- Steps:
 	-- 1) Replace flag usages
 	--		* game:DefineFastFlag -> if result used, <value>, else <nothing> (i.e, whether it's a statement call)
