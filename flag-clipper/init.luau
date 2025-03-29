@@ -135,6 +135,7 @@ local function transform(ctx: codemod.Context<Options>)
 	flagVisitor.visitExpressionEnd = function(expression: T.AstExpr)
 		local simplifyCtx = {
 			flagName = ctx.options.flag,
+			flagValue = ctx.options.value,
 			flagLocalsSet = flagLocalsSet,
 			globalFunctionsSet = globalFunctionsSet,
 		}
@@ -147,6 +148,7 @@ local function transform(ctx: codemod.Context<Options>)
 		-- TODO: should we be inplace editing?
 		local simplifyCtx = {
 			flagName = ctx.options.flag,
+			flagValue = ctx.options.value,
 			flagLocalsSet = flagLocalsSet,
 			globalFunctionsSet = globalFunctionsSet,
 		}

@@ -1,6 +1,7 @@
 local T = require("@batteries/syntax/ast_types")
 
 local isFlagAccess = require("./matchers/isFlagAccess")
+local evaluate = require("./evaluate")
 
 type SimplifyContext = {
 	flagName: string,
@@ -16,58 +17,7 @@ local function space(count): T.Trivia
 	} :: any
 end
 
---- Tri-state evaluation. Returns true / false if can constantly evaluate.
---- If we cannot evaluate, returns 'nil'. Hence, you *must not* rely on truthiness/falsiness checks
-local function evaluate(expression: T.AstExpr, ctx: SimplifyContext): boolean?
-	if expression.tag == "boolean" then
-		return expression.value
-	elseif isFlagAccess(expression, ctx.flagName) then
-		return true -- TODO: handle if removing as false
-	elseif expression.tag == "local" then
-		local state = ctx.flagLocalsSet[expression["local"]]
-		if state == nil then
-			return nil
-		end
-		return state == true
-	elseif expression.tag == "call" then
-		local callExpr = expression.func
-		if callExpr.tag == "local" then
-			local state = ctx.flagLocalsSet[callExpr["local"]]
-			if state == nil then
-				return nil
-			end
-			return state == true
-		elseif callExpr.tag == "global" then
-			local state = ctx.globalFunctionsSet[callExpr.name.text]
-			if state == nil then
-				return nil
-			end
-			return state == true
-		end
-		-- elseif expression.tag == "binary" then
-		-- 	-- TODO: handle if one of the evaluates is nil
-		-- 	if expression.operator.text == "and" then
-		-- 		return evaluate(expression.lhsoperand, ctx) and evaluate(expression.rhsoperand, ctx)
-		-- 	elseif expression.operator.text == "or" then
-		-- 		return evaluate(expression.lhsoperand, ctx) or evaluate(expression.rhsoperand, ctx)
-		-- 	else
-		-- 		return nil
-		-- 	end
-		-- elseif expression.tag == "unary" then
-		-- 	if expression.operator.text == "not" then
-		-- 		local evaluated = evaluate(expression.operand, ctx)
-		-- 		if evaluated == nil then
-		-- 			return nil
-		-- 		end
-
-		-- 		return not evaluated
-		-- 	end
-	end
-
-	return nil
-end
-
-local function simplifyConditional(node: T.AstStatIf, ctx: SimplifyContext): T.AstStat
+local function simplifyConditional(node: T.AstStatIf, ctx: evaluate.EvaluateContext): T.AstStat
 	-- This is performed in post, so the conditional expression is already simplified
 	local conditionResult = evaluate(node.condition, ctx)
 	if conditionResult == true then
@@ -86,7 +36,7 @@ local function simplifyConditional(node: T.AstStatIf, ctx: SimplifyContext): T.A
 	return node
 end
 
-local function simplifyBlock(block: T.AstStatBlock, ctx: SimplifyContext): T.AstStatBlock
+local function simplifyBlock(block: T.AstStatBlock, ctx: evaluate.EvaluateContext): T.AstStatBlock
 	local statements = {}
 
 	for _, statement in block.statements do

@@ -1,42 +1,15 @@
 local T = require("@batteries/syntax/ast_types")
 
-local isFlagAccess = require("./matchers/isFlagAccess")
+local evaluate = require("./evaluate")
 
-type SimplifyContext = {
-	flagName: string,
-	flagLocalsSet: { [T.AstLocal]: true },
-	globalFunctionsSet: { [string]: true },
-}
-
-local function isConstantTrueValue(expression: T.AstExpr, ctx: SimplifyContext)
-	-- TODO: correct this for when we are removing a flag with value false
-	if expression.tag == "boolean" then
-		return expression.value == true
-	elseif isFlagAccess(expression, ctx.flagName) then
-		return true
-	elseif expression.tag == "local" then
-		return ctx.flagLocalsSet[expression["local"]] == true
-	elseif expression.tag == "call" then
-		local callExpr = expression.func
-		if callExpr.tag == "local" then
-			return ctx.flagLocalsSet[callExpr["local"]] == true
-		elseif callExpr.tag == "global" then
-			return ctx.globalFunctionsSet[callExpr.name.text] == true
-		end
-	end
-
-	return false
+local function isConstantTrueValue(expression: T.AstExpr, ctx: evaluate.EvaluateContext)
+	local value = evaluate(expression, ctx)
+	return value == true
 end
 
-local function isConstantFalseValue(expression: T.AstExpr, ctx: SimplifyContext)
-	if expression.tag == "boolean" then
-		return expression.value == false
-	end
-
-	-- TODO: should we check for nils here? We would never be replacing with nil anyways
-	-- TODO: we should check for flag accesses if we are replacing the flag with false
-
-	return false
+local function isConstantFalseValue(expression: T.AstExpr, ctx: evaluate.EvaluateContext)
+	local value = evaluate(expression, ctx)
+	return value == false
 end
 
 local function makePosition(startLine: number, startColumn: number, endLine: number, endColumn: number): T.Position
@@ -63,7 +36,7 @@ local function makeConstant(value: boolean): T.AstExprConstantBool
 	}
 end
 
-local function simplifyUnary(expression: T.AstExprUnary, ctx: SimplifyContext): T.AstExpr
+local function simplifyUnary(expression: T.AstExprUnary, ctx: evaluate.EvaluateContext): T.AstExpr
 	if expression.operator.text == "not" then
 		if isConstantTrueValue(expression.operand, ctx) then
 			return makeConstant(false)
@@ -75,7 +48,7 @@ local function simplifyUnary(expression: T.AstExprUnary, ctx: SimplifyContext): 
 	return expression
 end
 
-local function simplifyBinary(expression: T.AstExprBinary, ctx: SimplifyContext): T.AstExpr
+local function simplifyBinary(expression: T.AstExprBinary, ctx: evaluate.EvaluateContext): T.AstExpr
 	if expression.operator.text == "and" then
 		if isConstantTrueValue(expression.lhsoperand, ctx) then
 			-- true and x => x
@@ -109,7 +82,7 @@ local function simplifyBinary(expression: T.AstExprBinary, ctx: SimplifyContext)
 	return expression
 end
 
-function simplify(expression: T.AstExpr, ctx: SimplifyContext): T.AstExpr
+function simplify(expression: T.AstExpr, ctx: evaluate.EvaluateContext): T.AstExpr
 	if expression.tag == "binary" then
 		return simplifyBinary(expression, ctx)
 	elseif expression.tag == "unary" then
