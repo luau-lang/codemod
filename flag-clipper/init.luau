@@ -31,7 +31,8 @@ type Options = {
 }
 
 local function transform(ctx: codemod.Context<Options>)
-	local block = parser.parse(ctx.source)
+	local result = parser.parsefile(ctx.source)
+	local block = result.root
 
 	print(`Removing {ctx.options.flag} as {ctx.options.value}`)
 
@@ -164,7 +165,7 @@ local function transform(ctx: codemod.Context<Options>)
 
 	visitor.visitBlock(block, flagVisitor)
 
-	return printer.print(block) .. "\n"
+	return printer.printfile({ root = block, eof = result.eof })
 end
 
 return {
