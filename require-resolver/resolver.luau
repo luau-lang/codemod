@@ -35,9 +35,11 @@ end
 
 --- Creates a standard file resolver for require resolution.
 --- Supports string requires, including aliases (based off luaurc), as well as Roblox style requires
-local function createFileResolver()
+local function createFileResolver(sourcemapData: sourcemap.SourcemapData?)
 	return function(context: ModuleInfo?, expression: T.AstExpr): ModuleInfo?
-		assert(context, "context == nil")
+		if context == nil then
+			return nil
+		end
 
 		if expression.tag == "string" then
 			return resolveStringRequire(expression.text, context.moduleName)
@@ -48,7 +50,10 @@ local function createFileResolver()
 			elseif globalName == "script" then
 				local virtualPath = if sourcemap.isVirtualPath(context.moduleName)
 					then context.moduleName
-					else sourcemap.realPathToVirtualPath(data, context.moduleName)
+					else sourcemap.realPathToVirtualPath(
+						assert(sourcemapData, "sourcemapData == nil"),
+						context.moduleName
+					)
 
 				if virtualPath then
 					return { moduleName = virtualPath }

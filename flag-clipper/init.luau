@@ -8,8 +8,16 @@ local codemod = require("../types")
 local isFlagAccess = require("./matchers/isFlagAccess")
 local isFlagFunction = require("./matchers/isFlagFunction")
 local isFlagModule = require("./matchers/isFlagModule")
+local isRequiredFlagModule = require("./matchers/isRequiredFlagModule")
 local simplifyExpression = require("./simplifyExpression")
 local simplifyBlock = require("./simplifyBlock")
+
+local sourcemap = require("../require-resolver/sourcemap")
+local requireTracer = require("../require-resolver/tracer")
+local fileResolver = require("../require-resolver/resolver")
+
+--- Global cache for sourcemap data
+local SourcemapData: sourcemap.SourcemapData? = nil
 
 local function inplaceReplace(old: T.AstExpr, new: T.AstExpr)
 	if old == new then
@@ -28,6 +36,9 @@ end
 type Options = {
 	flag: string,
 	value: boolean,
+	--- Path to a sourcemap file to resolve virtual requires.
+	--- If not provided, defaults to an empty string
+	sourcemap: string,
 }
 
 local function transform(ctx: codemod.Context<Options>)
@@ -35,6 +46,12 @@ local function transform(ctx: codemod.Context<Options>)
 	local block = result.root
 
 	print(`Removing {ctx.options.flag} as {ctx.options.value}`)
+
+	-- Populate sourcemap data on first codemod execution
+	if not SourcemapData and ctx.options.sourcemap ~= "" then
+		print(`Parsing sourcemap at {ctx.options.sourcemap}`)
+		SourcemapData = sourcemap.parseSourcemap(ctx.options.sourcemap)
+	end
 
 	-- Steps:
 	-- 1) Replace flag usages
@@ -98,6 +115,8 @@ local function transform(ctx: codemod.Context<Options>)
 		return codemod.DELETION_MARKER
 	end
 
+	local requireInfo = requireTracer.traceRequires(block, ctx.path, fileResolver.createFileResolver(SourcemapData))
+
 	-- A set of AstLocals that are known to correspond to a flag access
 	-- The locals can be a constant reference, or a function definition
 	local flagLocalsSet = {}
@@ -111,8 +130,12 @@ local function transform(ctx: codemod.Context<Options>)
 	flagVisitor.visitLocalDeclaration = function(node: T.AstStatLocal)
 		for idx, variables in node.variables do
 			local value = node.values[idx]
-			if value and isFlagAccess(value.node, ctx.options.flag) then
-				flagLocalsSet[variables.node] = true
+			if value then
+				if isFlagAccess(value.node, ctx.options.flag) then
+					flagLocalsSet[variables.node] = true
+				elseif isRequiredFlagModule(value.node, ctx.options.flag, requireInfo, SourcemapData) then
+					flagLocalsSet[variables.node] = true
+				end
 			end
 		end
 
@@ -172,6 +195,7 @@ return {
 	options = {
 		{ name = "flag", kind = "string" },
 		{ name = "value", kind = "boolean", default = true },
+		{ name = "sourcemap", kind = "string", default = "" },
 	},
 	transform = transform,
 }

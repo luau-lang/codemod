@@ -68,7 +68,7 @@ local function getDependent(tracer: RequireTracer, node: T.AstExpr): T.AstExpr?
 	return nil
 end
 
-type RequireTracerResult = { [T.AstExprCall]: resolver.ModuleInfo }
+export type RequireTracerResult = { [T.AstExprCall]: resolver.ModuleInfo }
 
 local function processTracer(
 	tracer: RequireTracer,

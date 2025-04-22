@@ -1,14 +1,14 @@
 local fs = require("@lute/fs")
 local json = require("@batteries/json")
 
-type SourcemapNode = {
+export type SourcemapNode = {
 	name: string,
 	className: string,
 	filePaths: { string }?,
 	children: { SourcemapNode }?,
 }
 
-type SourcemapData = {
+export type SourcemapData = {
 	root: SourcemapNode,
 	sourcemapLocation: string,
 	realToVirtualPathMap: { [string]: string },
@@ -27,6 +27,11 @@ local function endsWith(str: string, suffix: string): boolean
 	return str:sub(-#suffix) == suffix
 end
 
+local function isAbsolute(path: string)
+	-- TODO: use a proper path library here
+	return startsWith(path, "/")
+end
+
 local function getRealPath(data: SourcemapData, node: SourcemapNode): string?
 	local scriptFilePath = nil
 
@@ -43,7 +48,12 @@ local function getRealPath(data: SourcemapData, node: SourcemapNode): string?
 		return nil
 	end
 
-	return `{data.sourcemapLocation}/{scriptFilePath}`
+	if isAbsolute(scriptFilePath) then
+		return scriptFilePath
+	else
+		-- TODO: use a proper path library here
+		return `{data.sourcemapLocation}/{scriptFilePath}`
+	end
 end
 
 local function isVirtualPath(path): boolean
@@ -76,7 +86,12 @@ end
 local function parseSourcemap(path: string): SourcemapData
 	local contents = fs.readfiletostring(path)
 	local root = json.deserialize(contents) :: SourcemapNode
-	local data = { root = root, realToVirtualPathMap = {}, virtualToRealPathMap = {} } :: SourcemapData
+	local data: SourcemapData = {
+		root = root,
+		sourcemapLocation = path,
+		realToVirtualPathMap = {},
+		virtualToRealPathMap = {},
+	}
 
 	local base = if root.className == "DataModel" then "game" else "ProjectRoot"
 	writePaths(data, root, base)
