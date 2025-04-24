@@ -146,7 +146,6 @@ local function test_simplifyIfIntoElseif()
 
 	local expected = [[
 			local x = 2
-
 	]]
 
 	assert(apply(source, "FlagName") == expected)
@@ -165,7 +164,6 @@ local function test_simplifyIfAndElseIf()
 
 	local expected = [[
 			local x = 3
-
 	]]
 
 	assert(apply(source, "FlagName") == expected)
@@ -179,8 +177,7 @@ return function()
 	test_simplifyIfStatementRemoveElse()
 	test_simplifyIfStatementRemoveIf()
 	test_keepComplicatedIf()
-	-- TODO:
-	-- test_simplifyIfStatementRemoveIfKeepElseif()
-	-- test_simplifyIfIntoElseif()
-	-- test_simplifyIfAndElseIf()
+	test_simplifyIfStatementRemoveIfKeepElseif()
+	test_simplifyIfIntoElseif()
+	test_simplifyIfAndElseIf()
 end

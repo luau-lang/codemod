@@ -21,17 +21,43 @@ local function simplifyConditional(node: T.AstStatIf, ctx: evaluate.EvaluateCont
 	-- This is performed in post, so the conditional expression is already simplified
 	local conditionResult = evaluate(node.condition, ctx)
 	if conditionResult == true then
-		-- Delete the else block
+		-- Delete the elseif / else block
 		return node.consequent
-	elseif conditionResult == false then
-		-- Delete the if block
-		-- Handle if we have an elseif
-		if node.antecedent.tag == "conditional" then
-			return simplifyConditional(node.antecedent, ctx)
+	end
+
+	-- Handle if we have an elseif
+	local elseifs = {}
+	for _, elseifNode in node.elseifs do
+		local elseifConditionResult = evaluate(elseifNode.condition, ctx)
+		if elseifConditionResult == true then
+			return elseifNode.consequent
+		elseif elseifConditionResult == false then
+			-- Skip (i.e. delete) the elseif node
+			continue
 		end
 
-		return node.antecedent
+		table.insert(elseifs, elseifNode)
 	end
+
+	if conditionResult == false then
+		-- If block must be deleted
+		if #elseifs > 0 then
+			-- Replace if with first else if
+			local firstElseIf = table.remove(elseifs, 1)
+			node["if"] = firstElseIf["elseif"]
+			node["if"].text = "if"
+			node.condition = firstElseIf.condition
+			node["then"] = firstElseIf["then"]
+			node.consequent = firstElseIf.consequent
+			node.elseifs = elseifs
+
+			return node
+		else
+			return node.antecedent
+		end
+	end
+
+	node.elseifs = elseifs
 
 	return node
 end
