@@ -1,30 +1,22 @@
 local parser = require("@batteries/syntax/parser")
 local printer = require("@batteries/syntax/printer")
 
+local evaluate = require("../evaluate")
 local simplifyBlock = require("../simplifyBlock")
-
--- TODO: parser needs to handle EOF whitespace properly
-local function FIXME_trailingWhitspace(str: string)
-	local trailing_whitespace = ""
-	local i = #str
-
-	while i > 0 and (str:sub(i, i) == " " or str:sub(i, i) == "\t" or str:sub(i, i) == "\n" or str:sub(i, i) == "\r") do
-		trailing_whitespace = str:sub(i, i) .. trailing_whitespace
-		i = i - 1
-	end
-
-	return trailing_whitespace
-end
 
 local function apply(source: string, flagName: string?)
 	flagName = flagName or "FlagName"
-	local result = printer.print(simplifyBlock(parser.parse(source), flagName))
 
-	if result ~= "" then
-		return result .. FIXME_trailingWhitspace(source)
-	else
-		return result
-	end
+	local context: evaluate.EvaluateContext = {
+		flagName = flagName,
+		flagValue = true,
+		flagLocalsSet = {},
+		globalFunctionsSet = {},
+	}
+
+	local parseResult = parser.parsefile(source)
+	parseResult.root = simplifyBlock(parseResult.root, context)
+	return printer.printfile(parseResult)
 end
 
 local function test_removeDefinition()
@@ -32,7 +24,8 @@ local function test_removeDefinition()
 		game:DefineFastFlag("FlagName", false)
 	]]
 
-	local expected = ""
+	local expected = [[
+	]]
 
 	assert(apply(source, "FlagName") == expected)
 end
@@ -42,7 +35,8 @@ local function test_removeGetterCall()
 		game:GetFastFlag("FlagName")
 	]]
 
-	local expected = ""
+	local expected = [[
+	]]
 
 	assert(apply(source, "FlagName") == expected)
 end
@@ -84,7 +78,6 @@ local function test_simplifyIfStatementRemoveElse()
 
 	local expected = [[
 			local x = 1
-
 	]]
 
 	assert(apply(source) == expected)
@@ -101,7 +94,6 @@ local function test_simplifyIfStatementRemoveIf()
 
 	local expected = [[
 			local x = 2
-
 	]]
 
 	assert(apply(source) == expected)

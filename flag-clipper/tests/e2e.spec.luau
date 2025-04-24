@@ -4,7 +4,7 @@ local types = require("../../types")
 local function apply(source: string, flagName: string?, value: boolean?)
 	flagName = flagName or "FlagName"
 	value = if value == nil then true else value
-	return codemod({ path = "", source = source, options = { flag = flagName, value = value } })
+	return codemod({ path = "", source = source, options = { flag = flagName, value = value, sourcemap = "" } })
 end
 
 local function test_markFlagModuleForDeletion()

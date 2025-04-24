@@ -4,8 +4,7 @@ local function runner()
 		"./isFlagFunction.spec",
 		"./isFlagModule.spec",
 		"./evaluate.spec",
-		-- "./simplify.spec",
-		-- "./simplifyBlock.spec",
+		"./simplifyBlock.spec",
 		"./e2e.spec",
 	}
 
