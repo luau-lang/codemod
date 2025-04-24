@@ -82,11 +82,58 @@ local function simplifyBinary(expression: T.AstExprBinary, ctx: evaluate.Evaluat
 	return expression
 end
 
+--- TODO: this is pretty much a duplicate of the block variant, can we DRY?
+local function simplifyConditional(expression: T.AstExprIfElse, ctx: evaluate.EvaluateContext): T.AstExpr
+	local conditionResult = evaluate(expression.condition, ctx)
+	if conditionResult == true then
+		-- Delethe the elseif / else part
+		return expression.consequent
+	end
+
+	-- Handle if we have an elseif
+	local elseifs = {}
+	for _, elseifNode in expression.elseifs do
+		local elseifConditionResult = evaluate(elseifNode.condition, ctx)
+		if elseifConditionResult == true then
+			return elseifNode.consequent
+		elseif elseifConditionResult == false then
+			-- Skip (i.e. delete) the elseif node
+			continue
+		end
+
+		table.insert(elseifs, elseifNode)
+	end
+
+	if conditionResult == false then
+		-- If part must be deleted
+		if #elseifs > 0 then
+			-- Replace if with first else if
+			local firstElseIf = table.remove(elseifs, 1)
+			expression["if"] = firstElseIf["elseif"]
+			expression["if"].text = "if"
+			expression.condition = firstElseIf.condition
+			expression["then"] = firstElseIf["then"]
+			expression.consequent = firstElseIf.consequent
+			expression.elseifs = elseifs
+
+			return expression
+		else
+			return expression.antecedent
+		end
+	end
+
+	expression.elseifs = elseifs
+
+	return expression
+end
+
 function simplify(expression: T.AstExpr, ctx: evaluate.EvaluateContext): T.AstExpr
 	if expression.tag == "binary" then
 		return simplifyBinary(expression, ctx)
 	elseif expression.tag == "unary" then
 		return simplifyUnary(expression, ctx)
+	elseif expression.tag == "conditional" then
+		return simplifyConditional(expression, ctx)
 	end
 
 	return expression
