@@ -1,6 +1,6 @@
 local T = require("@batteries/syntax/ast_types")
 
-local isFlagAccess = require("./matchers/isFlagAccess")
+local isFlagReference = require("./matchers/isFlagReference")
 
 export type EvaluateContext = {
 	read flagName: string,
@@ -15,29 +15,8 @@ export type EvaluateContext = {
 local function evaluate(expression: T.AstExpr, ctx: EvaluateContext): boolean?
 	if expression.tag == "boolean" then
 		return expression.value
-	elseif isFlagAccess(expression, ctx.flagName) then
+	elseif isFlagReference(expression, ctx) then
 		return ctx.flagValue
-	elseif expression.tag == "local" then
-		local isLocalReferencingFlag = ctx.flagLocalsSet[expression["local"]]
-		if isLocalReferencingFlag then
-			return ctx.flagValue
-		end
-		return nil
-	elseif expression.tag == "call" then
-		local callExpr = expression.func
-		if callExpr.tag == "local" then
-			local isLocalReferencingFlag = ctx.flagLocalsSet[callExpr["local"]]
-			if isLocalReferencingFlag then
-				return ctx.flagValue
-			end
-			return nil
-		elseif callExpr.tag == "global" then
-			local isGlobalReferencingFlag = ctx.globalFunctionsSet[callExpr.name.text]
-			if isGlobalReferencingFlag then
-				return ctx.flagValue
-			end
-			return nil
-		end
 	end
 
 	return nil
