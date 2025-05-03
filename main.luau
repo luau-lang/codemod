@@ -1,4 +1,6 @@
 local fs = require("@lute/fs")
+
+local arguments = require("./lib/arguments")
 local types = require("./types")
 
 local DRY_RUN = false
@@ -13,24 +15,8 @@ local function extend<T>(tbl: { T }, other: { T })
 	end
 end
 
-local function startsWith(str: string, prefix: string): boolean
-	if #prefix > #str then
-		return false
-	end
-
-	return str:sub(1, #prefix) == prefix
-end
-
 local function endsWith(str: string, suffix: string): boolean
 	return str:sub(-#suffix) == suffix
-end
-
-local function removePrefix(str: string, prefix: string): string
-	if not startsWith(str, prefix) then
-		return str
-	end
-
-	return str:sub(#prefix + 1)
 end
 
 local function traverseDirectoryRecursive(path: string): { string }
@@ -52,7 +38,7 @@ local function traverseDirectoryRecursive(path: string): { string }
 	return results
 end
 
-local function getSourceFiles(paths: { string })
+local function getSourceFiles(paths: { string }): { string }
 	local files = {}
 
 	for _, path in paths do
@@ -164,56 +150,19 @@ local function applyCodemod(codemod: types.Codemod, paths: { string }, options: 
 	end
 end
 
---- Processes a set of CLI arguments into options and file paths
-local function processArguments(arguments: { string })
-	local options, filePaths = {}, {}
-
-	local i = 1
-	while i <= #arguments do
-		local argument = arguments[i]
-
-		if startsWith(argument, "--") then
-			local name = removePrefix(argument, "--")
-			i += 1
-			assert(i <= #arguments, `Missing value for '{name}'`)
-			local value = arguments[i]
-
-			options[name] = value
-		else
-			table.insert(filePaths, argument)
-		end
-
-		i += 1
-	end
-
-	return options, filePaths
-end
-
 local function main(...: string)
-	local arguments = { ... }
+	local args = arguments.parse({ ... })
 
-	-- TODO: replace with proper CLI system
-	-- For now, first argument is the transformer script, whilst the rest are either flags or files to apply it on
+	print(`Loading codemod '{args.codemodPath}'`)
+	local codemod = loadCodemod(args.codemodPath)
 
-	if #arguments < 2 then
-		error("Usage: main.luau <transformer script> [options...] <files...>")
-	end
-
-	local codemodPath: string? = table.remove(arguments, 1)
-	assert(codemodPath, "ASSERTION FAILED: codemodPath ~= nil")
-
-	local options, filePaths = processArguments(arguments)
-
-	local files = getSourceFiles(filePaths)
+	local files = getSourceFiles(args.filePaths)
 	if #files == 0 then
 		error("error: no source files provided")
 	end
 
-	print(`Loading codemod '{codemodPath}'`)
-	local codemod = loadCodemod(codemodPath)
-
 	print("Processing codemod options")
-	local codemodOptions = processCodemodOptions(codemod, options)
+	local codemodOptions = processCodemodOptions(codemod, args.codemodOptions)
 
 	print("Applying codemod")
 	applyCodemod(codemod, files, codemodOptions)
