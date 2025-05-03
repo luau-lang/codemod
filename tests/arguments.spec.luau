@@ -54,6 +54,21 @@ local function test_codemodOptionsButNoFilePath()
 	assert(#config.filePaths == 0)
 end
 
+local function test_dryRunFlag()
+	local config = arguments.parse({ "--dry-run", "transform.luau", "example.luau" })
+	assert(config.dryRun == true)
+	assert(config.codemodPath == "transform.luau")
+	assert(#config.filePaths == 1)
+	assert(config.filePaths[1] == "example.luau")
+end
+
+local function test_unknownToolFlag()
+	local success, message = pcall(arguments.parse, { "--unknown", "transform.luau", "example.luau" })
+	assert(success == false)
+	assert(typeof(message) == "string")
+	-- assert(message == "Unknown flag '--unknown'") -- TODO
+end
+
 test_expectFailureWithNoArguments()
 test_expectFailureWhenOnlyFilePathProvided()
 test_processCodemodAndSingleFile()
@@ -61,3 +76,5 @@ test_processCodemodAndMultipleFiles()
 test_processWithCodemodOptions()
 test_expectFailureWhenCodemodOptionValueNotPresent()
 test_codemodOptionsButNoFilePath()
+test_dryRunFlag()
+test_unknownToolFlag()

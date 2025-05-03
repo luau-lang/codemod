@@ -1,4 +1,6 @@
 export type Config = {
+	--- Prevent making changes to files
+	dryRun: boolean,
 	--- Path to the codemod module to execute
 	codemodPath: string,
 	--- Configuration flags to pass to the codemod
@@ -32,9 +34,12 @@ local function parse(arguments: { string }): Config
 		error("Usage: main.luau <transformer script> [options...] <files...>")
 	end
 
-	local codemodPath: string? = nil
-	local codemodOptions = {}
-	local filePaths = {}
+	local config = {
+		dryRun = false,
+		codemodPath = nil :: string?,
+		codemodOptions = {},
+		filePaths = {},
+	}
 
 	local i = 1
 	while i <= #arguments do
@@ -42,34 +47,35 @@ local function parse(arguments: { string }): Config
 
 		if startsWith(argument, "--") then
 			local name = removePrefix(argument, "--")
-			i += 1
-			assert(i <= #arguments, `Missing value for '{name}'`)
-			local value = arguments[i]
 
-			if codemodPath == nil then
+			if config.codemodPath == nil then
 				-- Options before the codemod file are parsed as options for the tool itself
-				error("TODO")
+				if name == "dry-run" then
+					config.dryRun = true
+				else
+					error(`Unknown flag '--{name}'`)
+				end
 			else
-				codemodOptions[name] = value
+				i += 1
+				assert(i <= #arguments, `Missing value for '{name}'`)
+				local value = arguments[i]
+
+				config.codemodOptions[name] = value
 			end
 		else
-			if codemodPath == nil then
-				codemodPath = argument
+			if config.codemodPath == nil then
+				config.codemodPath = argument
 			else
-				table.insert(filePaths, argument)
+				table.insert(config.filePaths, argument)
 			end
 		end
 
 		i += 1
 	end
 
-	assert(codemodPath, "ASSERTION FAILED: codemodPath ~= nil")
+	assert(config.codemodPath, "ASSERTION FAILED: codemodPath ~= nil")
 
-	return {
-		codemodPath = codemodPath,
-		codemodOptions = codemodOptions,
-		filePaths = filePaths,
-	}
+	return config
 end
 
 return {

@@ -3,8 +3,6 @@ local fs = require("@lute/fs")
 local arguments = require("./lib/arguments")
 local types = require("./types")
 
-local DRY_RUN = false
-
 local function exhaustiveMatch(value: never): never
 	error(`Unknown value in exhaustive match: {value}`)
 end
@@ -80,7 +78,7 @@ local function loadCodemod(path: string): types.Codemod
 	end
 end
 
-local function processCodemodOptions(codemod: types.Codemod, options: { [string]: string })
+local function processCodemodOptions(codemod: types.Codemod, options: { [string]: string }): { [string]: any }
 	if codemod.options == nil then
 		return table.freeze({})
 	end
@@ -111,7 +109,12 @@ local function processCodemodOptions(codemod: types.Codemod, options: { [string]
 	return table.freeze(processedOptions)
 end
 
-local function applyCodemod(codemod: types.Codemod, paths: { string }, options: { [string]: string | boolean })
+local function applyCodemod(
+	codemod: types.Codemod,
+	paths: { string },
+	options: { [string]: string | boolean },
+	dryRun: boolean
+)
 	local deletedPaths = {}
 
 	for _, path in paths do
@@ -137,12 +140,12 @@ local function applyCodemod(codemod: types.Codemod, paths: { string }, options: 
 		if result == types.DELETION_MARKER then
 			print(`Marking {path} for deletion`)
 			table.insert(deletedPaths, path)
-		elseif not DRY_RUN then
+		elseif not dryRun then
 			fs.writestringtofile(path, result)
 		end
 	end
 
-	if not DRY_RUN then
+	if not dryRun then
 		for _, path in deletedPaths do
 			print(`Deleting {path}`)
 			fs.remove(path)
@@ -152,6 +155,10 @@ end
 
 local function main(...: string)
 	local args = arguments.parse({ ... })
+
+	if args.dryRun then
+		print("Executing in dry run mode")
+	end
 
 	print(`Loading codemod '{args.codemodPath}'`)
 	local codemod = loadCodemod(args.codemodPath)
@@ -165,7 +172,7 @@ local function main(...: string)
 	local codemodOptions = processCodemodOptions(codemod, args.codemodOptions)
 
 	print("Applying codemod")
-	applyCodemod(codemod, files, codemodOptions)
+	applyCodemod(codemod, files, codemodOptions, args.dryRun)
 end
 
 main(...)
