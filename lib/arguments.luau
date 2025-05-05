@@ -30,7 +30,7 @@ local function parse(arguments: { string }): Config
 	-- TODO: replace with proper CLI system
 	-- For now, first argument is the transformer script, whilst the rest are either flags or files to apply it on
 
-	if #arguments < 2 then
+	if #arguments < 3 then
 		error("Usage: main.luau <transformer script> [options...] <files...>")
 	end
 
@@ -41,7 +41,8 @@ local function parse(arguments: { string }): Config
 		filePaths = {},
 	}
 
-	local i = 1
+	-- arguments[1] is the codemod driver file itself
+	local i = 2
 	while i <= #arguments do
 		local argument = arguments[i]
 
