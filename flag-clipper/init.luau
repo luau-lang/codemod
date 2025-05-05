@@ -3,18 +3,17 @@ local printer = require("@batteries/syntax/printer")
 local visitor = require("@batteries/syntax/visitor")
 local T = require("@batteries/syntax/ast_types")
 
-local codemod = require("../types")
+local codemod = require("./types")
+local sourcemap = require("./require-resolver/sourcemap")
+local requireTracer = require("./require-resolver/tracer")
+local fileResolver = require("./require-resolver/resolver")
 
-local isFlagAccess = require("./matchers/isFlagAccess")
-local isFlagFunction = require("./matchers/isFlagFunction")
-local isFlagModule = require("./matchers/isFlagModule")
-local isRequiredFlagModule = require("./matchers/isRequiredFlagModule")
-local simplifyExpression = require("./simplifyExpression")
-local simplifyBlock = require("./simplifyBlock")
-
-local sourcemap = require("../require-resolver/sourcemap")
-local requireTracer = require("../require-resolver/tracer")
-local fileResolver = require("../require-resolver/resolver")
+local isFlagAccess = require("@self/matchers/isFlagAccess")
+local isFlagFunction = require("@self/matchers/isFlagFunction")
+local isFlagModule = require("@self/matchers/isFlagModule")
+local isRequiredFlagModule = require("@self/matchers/isRequiredFlagModule")
+local simplifyExpression = require("@self/simplifyExpression")
+local simplifyBlock = require("@self/simplifyBlock")
 
 --- Global cache for sourcemap data
 local SourcemapData: sourcemap.SourcemapData? = nil
