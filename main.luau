@@ -23,6 +23,11 @@ local function traverseDirectoryRecursive(path: string): { string }
 	for _, entry in fs.listdir(path) do
 		local fullPath = `{path}/{entry.name}` -- TODO: os specific path join?
 
+		-- TODO: generalise the ignore logic to support gitignores
+		if entry.name == ".git" then
+			continue
+		end
+
 		if entry.type == "dir" then
 			extend(results, traverseDirectoryRecursive(fullPath))
 		else
