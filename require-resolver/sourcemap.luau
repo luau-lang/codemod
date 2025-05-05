@@ -32,6 +32,13 @@ local function isAbsolute(path: string)
 	return startsWith(path, "/")
 end
 
+local function getParentPath(path: string)
+	local parts = string.split(path, "/")
+	assert(#parts > 1)
+	table.remove(parts)
+	return table.concat(parts, "/")
+end
+
 local function getRealPath(data: SourcemapData, node: SourcemapNode): string?
 	local scriptFilePath = nil
 
@@ -52,7 +59,7 @@ local function getRealPath(data: SourcemapData, node: SourcemapNode): string?
 		return scriptFilePath
 	else
 		-- TODO: use a proper path library here
-		return `{data.sourcemapLocation}/{scriptFilePath}`
+		return `{getParentPath(data.sourcemapLocation)}/{scriptFilePath}`
 	end
 end
 
