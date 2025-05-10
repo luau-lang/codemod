@@ -11,6 +11,10 @@ local isRequiredFlagModule = require("./matchers/isRequiredFlagModule")
 local TrackReferences = {}
 TrackReferences.__index = TrackReferences
 
+type TableData = {
+	flagProperties: { string },
+}
+
 type TrackReferencesData = {
 	--- A set of AstLocals that are known to correspond to a flag access
 	--- The locals can be a constant reference, or a function definition
@@ -21,6 +25,9 @@ type TrackReferencesData = {
 	--- A set of global function names that are known to correspond to a flag access
 	--- Unlike flagLocalsSet, we do not track this via AstLocal reference, but just by the function name
 	_globalNames: { [string]: true },
+	--- Stores local variables that correspond to tables, and the relevant properties inside of that table that
+	--- correspond to a flag
+	_tableData: { [T.AstLocal]: TableData },
 	_visitor: visitor.Visitor,
 }
 
@@ -35,10 +42,13 @@ function TrackReferences.new(
 	self._locals = {}
 	self._expressions = {}
 	self._globalNames = {}
+	self._tableData = {}
 	self._visitor = visitor.createVisitor()
 
 	self._visitor.visitExpression = function(node: T.AstExpr)
 		if isFlagAccess(node, flagName) then
+			self._expressions[node] = true
+		elseif isFlagFunction.isExprFlagFunction(node, flagName) then
 			self._expressions[node] = true
 		elseif isRequiredFlagModule(node, flagName, requireInfo, sourcemapData) then
 			self._expressions[node] = true
@@ -46,14 +56,15 @@ function TrackReferences.new(
 			if self._locals[node["local"]] then
 				self._expressions[node] = true
 			end
-		elseif node.tag == "call" then
-			local callExpr = node.func
-			if callExpr.tag == "local" then
-				if self._locals[callExpr["local"]] then
-					self._expressions[node] = true
-				end
-			elseif callExpr.tag == "global" then
-				if self._globalNames[callExpr.name.text] then
+		elseif node.tag == "global" then
+			if self._globalNames[node.name.text] then
+				self._expressions[node] = true
+			end
+		elseif node.tag == "indexname" then
+			-- TODO: resolve nested tables
+			if node.expr.tag == "local" then
+				local tableData = self._tableData[node.expr["local"]]
+				if tableData and table.find(tableData.flagProperties, node.index.text) then
 					self._expressions[node] = true
 				end
 			end
@@ -61,11 +72,34 @@ function TrackReferences.new(
 		return true
 	end
 
+	self._visitor.visitExpressionEnd = function(node: T.AstExpr)
+		if node.tag == "call" then
+			local callExpr = node.func
+			if self._expressions[callExpr] then
+				self._expressions[node] = true
+			end
+		end
+	end
+
 	self._visitor.visitLocalDeclarationEnd = function(node: T.AstStatLocal)
 		for idx, variable in node.variables do
 			local value = node.values[idx].node
 			if self._expressions[value] then
 				self._locals[variable.node] = true
+			end
+
+			if value.tag == "table" then
+				local tableData = { flagProperties = {} }
+
+				for _, entry in value.entries do
+					if entry.kind == "record" then
+						if self._expressions[entry.value] then
+							table.insert(tableData.flagProperties, entry.key.text)
+						end
+					end
+				end
+
+				self._tableData[variable.node] = tableData
 			end
 		end
 	end

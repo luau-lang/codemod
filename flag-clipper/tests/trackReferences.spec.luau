@@ -133,6 +133,72 @@ local function test_ignoreUnknownGlobalCalls()
 	assert(references:isReference(call.expression) == false)
 end
 
+local function test_flagAccessViaTableIndex()
+	local block = parser.parse([[
+		local tbl = {
+			flagValue = game:GetFastFlag("FlagName")
+		}
+		print(tbl.flagValue)
+	]])
+	assert(#block.statements == 2)
+
+	local call = block.statements[2]
+	assert(call.tag == "expression")
+	assert(call.expression.tag == "call")
+	assert(#call.expression.arguments == 1)
+
+	local expression = call.expression.arguments[1].node
+	assert(expression.tag == "indexname")
+
+	local references = TrackReferences.new("FlagName", {})
+	references:visit(block)
+	assert(references:isReference(expression) == true)
+end
+
+local function test_ignoreUnknownTableReference()
+	local block = parser.parse([[
+		local tbl = {
+			flagValue = game:GetFastFlag("FlagName")
+		}
+		print(tbl.otherProperty)
+	]])
+	assert(#block.statements == 2)
+
+	local call = block.statements[2]
+	assert(call.tag == "expression")
+	assert(call.expression.tag == "call")
+	assert(#call.expression.arguments == 1)
+
+	local expression = call.expression.arguments[1].node
+	assert(expression.tag == "indexname")
+
+	local references = TrackReferences.new("FlagName", {})
+	references:visit(block)
+	assert(references:isReference(expression) == false)
+end
+
+local function test_flagAccessViaTableFunctionCall()
+	local block = parser.parse([[
+		local tbl = {
+			flagValue = function()
+				return game:GetFastFlag("FlagName")
+			end
+		}
+		tbl.flagValue()
+	]])
+	assert(#block.statements == 2)
+
+	local call = block.statements[2]
+	assert(call.tag == "expression")
+	assert(call.expression.tag == "call")
+	assert(call.expression.func.tag == "indexname")
+
+	local references = TrackReferences.new("FlagName", {})
+	references:visit(block)
+
+	assert(references:isReference(call.expression) == true)
+end
+
 return function()
 	test_directFlagAccess()
 	test_flagAccessViaLocalVariable()
@@ -141,4 +207,7 @@ return function()
 	test_ignoreUnknownLocalCalls()
 	test_flagAccessViaGlobalCall()
 	test_ignoreUnknownGlobalCalls()
+	test_flagAccessViaTableIndex()
+	test_ignoreUnknownTableReference()
+	test_flagAccessViaTableFunctionCall()
 end
