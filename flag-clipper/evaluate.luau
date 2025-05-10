@@ -1,12 +1,9 @@
 local T = require("@batteries/syntax/ast_types")
 
-local isFlagReference = require("./matchers/isFlagReference")
-
+local TrackReferences = require("./TrackReferences")
 export type EvaluateContext = {
-	read flagName: string,
+	read references: TrackReferences.TrackReferences,
 	read flagValue: boolean,
-	read flagLocalsSet: { [T.AstLocal]: true },
-	read globalFunctionsSet: { [string]: true },
 }
 
 --- Attempts to constantly evaluate an expression to either 'true' or 'false'
@@ -15,7 +12,7 @@ export type EvaluateContext = {
 local function evaluate(expression: T.AstExpr, ctx: EvaluateContext): boolean?
 	if expression.tag == "boolean" then
 		return expression.value
-	elseif isFlagReference(expression, ctx) then
+	elseif ctx.references:isReference(expression) then
 		return ctx.flagValue
 	end
 

@@ -1,14 +1,7 @@
 local T = require("@batteries/syntax/ast_types")
 
-local isFlagAccess = require("./matchers/isFlagAccess")
 local evaluate = require("./evaluate")
 local simplifyConditional = require("./simplifyConditional")
-
-type SimplifyContext = {
-	flagName: string,
-	flagLocalsSet: { [T.AstLocal]: true },
-	globalFunctionsSet: { [string]: true },
-}
 
 local function space(count): T.Trivia
 	return {
@@ -24,7 +17,7 @@ local function simplifyBlock(block: T.AstStatBlock, ctx: evaluate.EvaluateContex
 	for _, statement in block.statements do
 		if statement.tag == "expression" then
 			-- Skip (i.e. delete) any top level flag access calls (game:DefineFastFlag / game:GetFastFlag)
-			if isFlagAccess(statement.expression, ctx.flagName) then
+			if ctx.references:isReference(statement.expression) then
 				continue
 			end
 			table.insert(statements, statement)
@@ -32,7 +25,7 @@ local function simplifyBlock(block: T.AstStatBlock, ctx: evaluate.EvaluateContex
 			-- Skip (i.e. delete) if all variables are marked for deletion
 			local shouldDelete = true
 			for _, variable in statement.variables do
-				if not ctx.flagLocalsSet[variable.node] then
+				if not ctx.references:isLocalReference(variable.node) then
 					shouldDelete = false
 					break
 				end
@@ -45,16 +38,16 @@ local function simplifyBlock(block: T.AstStatBlock, ctx: evaluate.EvaluateContex
 			table.insert(statements, statement)
 		elseif statement.tag == "localfunction" then
 			-- Skip (i.e. delete) if local function is marked for deletion
-			if ctx.flagLocalsSet[statement.name] then
+			if ctx.references:isLocalReference(statement.name) then
 				continue
 			end
 
 			table.insert(statements, statement)
 		elseif statement.tag == "function" then
 			-- Skip (i.e. delete) if local function is marked for deletion
-			if statement.name.tag == "local" and ctx.flagLocalsSet[statement.name["local"]] then
+			if statement.name.tag == "local" and ctx.references:isLocalReference(statement.name["local"]) then
 				continue
-			elseif statement.name.tag == "global" and ctx.globalFunctionsSet[statement.name.name.text] then
+			elseif statement.name.tag == "global" and ctx.references:isGlobalReference(statement.name.name.text) then
 				continue
 			end
 
