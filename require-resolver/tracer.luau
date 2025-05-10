@@ -58,7 +58,7 @@ local function getDependent(tracer: RequireTracer, node: T.AstExpr): T.AstExpr?
 		return node.expr
 	elseif node.tag == "index" then
 		return node.expr
-	elseif node.tag == "call" and node.self ~= nil then
+	elseif node.tag == "call" and node.self then
 		assert(node.func.tag == "indexname")
 		return node.func.expr
 	elseif node.tag == "group" then
