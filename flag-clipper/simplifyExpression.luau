@@ -83,6 +83,19 @@ local function simplifyBinary(expression: T.AstExprBinary, ctx: evaluate.Evaluat
 	return expression
 end
 
+--- Removes fields from a table that resolve to the removed Flag
+local function simplifyTable(expression: T.AstExprTable, ctx: evaluate.EvaluateContext)
+	local entries = {}
+	for _, field in expression.entries do
+		if ctx.references:isReference(field.value) then
+			continue
+		end
+		table.insert(entries, field)
+	end
+	expression.entries = entries
+	return expression
+end
+
 function simplify(expression: T.AstExpr, ctx: evaluate.EvaluateContext): T.AstExpr
 	if expression.tag == "binary" then
 		return simplifyBinary(expression, ctx)
