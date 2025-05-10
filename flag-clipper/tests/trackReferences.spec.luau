@@ -1,14 +1,12 @@
 local parser = require("@batteries/syntax/parser")
 
-local isFlagReference = require("../matchers/isFlagReference")
+local TrackReferences = require("../TrackReferences")
 
 local function isReference(source: string, flag: string?)
-	local ctx = {
-		flagName = flag or "FlagName",
-		flagLocalsSet = {},
-		globalFunctionsSet = {},
-	}
-	return isFlagReference(parser.parseexpr(source), ctx)
+	local expression = parser.parseexpr(source)
+	local references = TrackReferences.new(flag or "FlagName", {})
+	references:_visitExpressionForTesting(expression)
+	return references:isReference(expression)
 end
 
 local function test_directFlagAccess()
@@ -21,16 +19,10 @@ end
 
 local function test_flagAccessViaLocalVariable()
 	local block = parser.parse([[
-		local flagValue = ...
+		local flagValue = game:GetFastFlag("FlagName")
 		print(flagValue)
 	]])
 	assert(#block.statements == 2)
-
-	local definition = block.statements[1]
-	assert(definition.tag == "local")
-	assert(#definition.variables == 1)
-
-	local flagLocalsSet = { [definition.variables[1].node] = true }
 
 	local call = block.statements[2]
 	assert(call.tag == "expression")
@@ -39,13 +31,9 @@ local function test_flagAccessViaLocalVariable()
 
 	local expr = call.expression.arguments[1].node
 
-	local ctx = {
-		flagName = "FlagName",
-		flagLocalsSet = flagLocalsSet,
-		globalFunctionsSet = {},
-	}
-
-	assert(isFlagReference(expr, ctx) == true)
+	local references = TrackReferences.new("FlagName", {})
+	references:visit(block)
+	assert(references:isReference(expr) == true)
 end
 
 local function test_ignoreUnknownLocalVariables()
@@ -66,18 +54,16 @@ local function test_ignoreUnknownLocalVariables()
 
 	local expr = call.expression.arguments[1].node
 
-	local ctx = {
-		flagName = "FlagName",
-		flagLocalsSet = {},
-		globalFunctionsSet = {},
-	}
-
-	assert(isFlagReference(expr, ctx) == false)
+	local references = TrackReferences.new("FlagName", {})
+	references:visit(block)
+	assert(references:isReference(expr) == false)
 end
 
 local function test_flagAccessViaLocalCall()
 	local block = parser.parse([[
-		local function getFlagValue() end
+		local function getFlagValue()
+			return game:GetFastFlag("FlagName")
+		end
 		getFlagValue()
 	]])
 	assert(#block.statements == 2)
@@ -87,15 +73,9 @@ local function test_flagAccessViaLocalCall()
 	assert(call.expression.tag == "call")
 	assert(call.expression.func.tag == "local")
 
-	local flagLocalsSet = { [call.expression.func["local"]] = true }
-
-	local ctx = {
-		flagName = "FlagName",
-		flagLocalsSet = flagLocalsSet,
-		globalFunctionsSet = {},
-	}
-
-	assert(isFlagReference(call.expression, ctx) == true)
+	local references = TrackReferences.new("FlagName", {})
+	references:visit(block)
+	assert(references:isReference(call.expression) == true)
 end
 
 local function test_ignoreUnknownLocalCalls()
@@ -108,36 +88,49 @@ local function test_ignoreUnknownLocalCalls()
 	local call = block.statements[2]
 	assert(call.tag == "expression")
 
-	local ctx = {
-		flagName = "FlagName",
-		flagLocalsSet = {},
-		globalFunctionsSet = {},
-	}
-
-	assert(isFlagReference(call.expression, ctx) == false)
+	local references = TrackReferences.new("FlagName", {})
+	references:visit(block)
+	assert(references:isReference(call.expression) == false)
 end
 
 local function test_flagAccessViaGlobalCall()
-	local expr = parser.parseexpr("globalCall()")
-	local ctx = {
-		flagName = "FlagName",
-		flagLocalsSet = {},
-		globalFunctionsSet = {
-			["globalCall"] = true,
-		},
-	}
-	assert(isFlagReference(expr, ctx) == true)
+	local block = parser.parse([[
+		function globalGetFlagValue()
+			return game:GetFastFlag("FlagName")
+		end
+		globalGetFlagValue()
+	]])
+	assert(#block.statements == 2)
 
-	expr = parser.parseexpr("randomGlobalCall()")
-	ctx = {
-		flagName = "FlagName",
-		flagValue = false,
-		flagLocalsSet = {},
-		globalFunctionsSet = {
-			["globalCall"] = true,
-		},
-	}
-	assert(isFlagReference(expr, ctx) == false)
+	local call = block.statements[2]
+	assert(call.tag == "expression")
+	assert(call.expression.tag == "call")
+	assert(call.expression.func.tag == "global")
+
+	local references = TrackReferences.new("FlagName", {})
+	references:visit(block)
+	assert(references:isReference(call.expression) == true)
+
+	-- expr = parser.parseexpr("randomGlobalCall()")
+	-- assert(references:isReference(expr) == false)
+end
+
+local function test_ignoreUnknownGlobalCalls()
+	local block = parser.parse([[
+		function globalRandomFunction()
+		end
+		globalRandomFunction()
+	]])
+	assert(#block.statements == 2)
+
+	local call = block.statements[2]
+	assert(call.tag == "expression")
+	assert(call.expression.tag == "call")
+	assert(call.expression.func.tag == "global")
+
+	local references = TrackReferences.new("FlagName", {})
+	references:visit(block)
+	assert(references:isReference(call.expression) == false)
 end
 
 return function()
@@ -147,4 +140,5 @@ return function()
 	test_flagAccessViaLocalCall()
 	test_ignoreUnknownLocalCalls()
 	test_flagAccessViaGlobalCall()
+	test_ignoreUnknownGlobalCalls()
 end

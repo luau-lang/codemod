@@ -61,14 +61,13 @@ function TrackReferences.new(
 		return true
 	end
 
-	self._visitor.visitLocalDeclaration = function(node: T.AstStatLocal)
+	self._visitor.visitLocalDeclarationEnd = function(node: T.AstStatLocal)
 		for idx, variable in node.variables do
-			local value = node.values[idx]
+			local value = node.values[idx].node
 			if self._expressions[value] then
-				self._locals[variable] = true
+				self._locals[variable.node] = true
 			end
 		end
-		return true
 	end
 
 	self._visitor.visitLocalFunction = function(node: T.AstStatLocalFunction)
@@ -94,6 +93,10 @@ end
 
 function TrackReferences.visit(self: TrackReferences, block: T.AstStatBlock)
 	visitor.visitBlock(block, self._visitor)
+end
+
+function TrackReferences._visitExpressionForTesting(self: TrackReferences, expression: T.AstExpr)
+	visitor.visitExpression(expression, self._visitor)
 end
 
 function TrackReferences.isLocalReference(self: TrackReferences, astLocal: T.AstLocal): boolean
