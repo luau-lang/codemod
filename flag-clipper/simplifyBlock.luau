@@ -54,24 +54,25 @@ local function simplifyBlock(block: T.AstStatBlock, ctx: evaluate.EvaluateContex
 			table.insert(statements, statement)
 		elseif statement.tag == "assign" then
 			-- Simplify 'local x; x = ...'
-			if #statements > 0 and #statement.variables == 1 and #statement.values == 1 then
-				local assigningTo = statement.variables[1].node
-				if assigningTo.tag == "local" then
-					local previousStatement = statements[#statements]
-					if
-						previousStatement.tag == "local"
-						and #previousStatement.variables == 1
-						and #previousStatement.values == 0
-						and previousStatement.variables[1].node.name.text == assigningTo.token.text
-					then
-						-- TODO: trivia preservation?
-						previousStatement.variables[1].node.name.trailingTrivia = { space(1) }
-						previousStatement.equals = statement.equals
-						table.insert(previousStatement.values, { node = statement.values[1].node })
-						continue
-					end
-				end
-			end
+			-- TODO: this is broken
+			-- if #statements > 0 and #statement.variables == 1 and #statement.values == 1 then
+			-- 	local assigningTo = statement.variables[1].node
+			-- 	if assigningTo.tag == "local" then
+			-- 		local previousStatement = statements[#statements]
+			-- 		if
+			-- 			previousStatement.tag == "local"
+			-- 			and #previousStatement.variables == 1
+			-- 			and #previousStatement.values == 0
+			-- 			and previousStatement.variables[1].node.name.text == assigningTo.token.text
+			-- 		then
+			-- 			-- TODO: trivia preservation?
+			-- 			previousStatement.variables[1].node.name.trailingTrivia = { space(1) }
+			-- 			previousStatement.equals = statement.equals
+			-- 			table.insert(previousStatement.values, { node = statement.values[1].node })
+			-- 			continue
+			-- 		end
+			-- 	end
+			-- end
 
 			table.insert(statements, statement)
 		elseif statement.tag == "conditional" then
