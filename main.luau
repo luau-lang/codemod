@@ -65,8 +65,12 @@ local function loadMigration(path: string): types.Migration
 		migration.transform = loaded
 		return migration :: types.Migration -- FIXME: Luau
 	elseif typeof(loaded) == "table" then
-		assert(typeof(loaded.transform) == "function", `{path} must contain a 'transform' property of type function`)
-		if loaded.options then
+		-- FIXME(Luau): https://github.com/luau-lang/luau/issues/1803 for the type assertions
+		assert(
+			typeof((loaded :: any).transform) == "function",
+			`{path} must contain a 'transform' property of type function`
+		)
+		if (loaded :: any).options then
 			assert(typeof(loaded.options) == "table", `Expected return of {path}.options to be a table`)
 			for _, option in loaded.options do
 				assert(typeof(option.name) == "string", `Expected option.name to be a string`)
@@ -74,10 +78,9 @@ local function loadMigration(path: string): types.Migration
 					option.kind == "string" or option.kind == "boolean",
 					`Expected option.kind to be either 'string' or 'boolean', got {option.kind}`
 				)
-				-- TODO: ensure option.name is not a built-in option
 			end
 		end
-		return loaded
+		return loaded :: types.Migration
 	else
 		error(`Expected '{path}' to return a function or table, got {typeof(loaded)}`)
 	end
@@ -85,7 +88,7 @@ end
 
 local function processMigrationOptions(migration: types.Migration, options: { [string]: string }): { [string]: any }
 	if migration.options == nil then
-		return table.freeze({})
+		return table.freeze({}) :: any -- FIXME(Luau): https://github.com/luau-lang/luau/issues/1802
 	end
 
 	local processedOptions: { [string]: string | boolean } = {}
