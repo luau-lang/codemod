@@ -10,9 +10,9 @@ export type EvaluateContext = {
 --- Returns a tri-state boolean.
 --- If we cannot evaluate, returns 'nil'. Hence, you *must not* rely on truthiness/falsiness checks
 local function evaluate(expression: T.AstExpr, ctx: EvaluateContext): boolean?
-	if expression.tag == "boolean" then
-		return expression.value
-	elseif ctx.references:isReference(expression) then
+	-- Note: we explicitly don't process a constant boolean into it's value
+	-- This is because we don't want to end up simplifying unrelated expressions to the flag itself
+	if ctx.references:isReference(expression) then
 		return ctx.flagValue
 	end
 
