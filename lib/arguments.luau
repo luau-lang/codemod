@@ -1,10 +1,10 @@
 export type Config = {
 	--- Prevent making changes to files
 	dryRun: boolean,
-	--- Path to the codemod module to execute
-	codemodPath: string,
-	--- Configuration flags to pass to the codemod
-	codemodOptions: { [string]: string },
+	--- Path to the migration module to execute
+	migrationPath: string,
+	--- Configuration flags to pass to the migration
+	migrationOptions: { [string]: string },
 	--- List of file paths to process
 	--- Note: no directory traversal or filtering has been applied on this list
 	filePaths: { string },
@@ -36,8 +36,8 @@ local function parse(arguments: { string }): Config
 
 	local config = {
 		dryRun = false,
-		codemodPath = nil :: string?,
-		codemodOptions = {},
+		migrationPath = nil :: string?,
+		migrationOptions = {},
 		filePaths = {},
 	}
 
@@ -49,7 +49,7 @@ local function parse(arguments: { string }): Config
 		if startsWith(argument, "--") then
 			local name = removePrefix(argument, "--")
 
-			if config.codemodPath == nil then
+			if config.migrationPath == nil then
 				-- Options before the codemod file are parsed as options for the tool itself
 				if name == "dry-run" then
 					config.dryRun = true
@@ -61,11 +61,11 @@ local function parse(arguments: { string }): Config
 				assert(i <= #arguments, `Missing value for '{name}'`)
 				local value = arguments[i]
 
-				config.codemodOptions[name] = value
+				config.migrationOptions[name] = value
 			end
 		else
-			if config.codemodPath == nil then
-				config.codemodPath = argument
+			if config.migrationPath == nil then
+				config.migrationPath = argument
 			else
 				table.insert(config.filePaths, argument)
 			end
@@ -74,7 +74,7 @@ local function parse(arguments: { string }): Config
 		i += 1
 	end
 
-	assert(config.codemodPath, "ASSERTION FAILED: codemodPath ~= nil")
+	assert(config.migrationPath, "ASSERTION FAILED: codemodPath ~= nil")
 
 	return config
 end

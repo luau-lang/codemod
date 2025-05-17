@@ -55,15 +55,15 @@ local function getSourceFiles(paths: { string }): { string }
 	return files
 end
 
-local function loadCodemod(path: string): types.Codemod
+local function loadMigration(path: string): types.Migration
 	local success, loaded = pcall(require, path)
 	assert(success, `{path} failed to require: {loaded}`)
 	assert(loaded, `{path} is missing a return`)
 
 	if typeof(loaded) == "function" then
-		local codemod = {}
-		codemod.transform = loaded
-		return codemod :: types.Codemod -- FIXME: Luau
+		local migration = {}
+		migration.transform = loaded
+		return migration :: types.Migration -- FIXME: Luau
 	elseif typeof(loaded) == "table" then
 		assert(typeof(loaded.transform) == "function", `{path} must contain a 'transform' property of type function`)
 		if loaded.options then
@@ -83,14 +83,14 @@ local function loadCodemod(path: string): types.Codemod
 	end
 end
 
-local function processCodemodOptions(codemod: types.Codemod, options: { [string]: string }): { [string]: any }
-	if codemod.options == nil then
+local function processMigrationOptions(migration: types.Migration, options: { [string]: string }): { [string]: any }
+	if migration.options == nil then
 		return table.freeze({})
 	end
 
 	local processedOptions: { [string]: string | boolean } = {}
 
-	for _, option in codemod.options do
+	for _, option in migration.options do
 		local value = options[option.name]
 		if value then
 			if option.kind == "boolean" then
@@ -114,8 +114,8 @@ local function processCodemodOptions(codemod: types.Codemod, options: { [string]
 	return table.freeze(processedOptions)
 end
 
-local function applyCodemod(
-	codemod: types.Codemod,
+local function applyMigration(
+	migration: types.Migration,
 	paths: { string },
 	options: { [string]: string | boolean },
 	dryRun: boolean
@@ -134,7 +134,7 @@ local function applyCodemod(
 		}
 
 		-- TODO: should we wrap in pcall? For now we don't do this to preserve stack trace
-		local result = codemod.transform(ctx)
+		local result = migration.transform(ctx)
 		-- local success, result = pcall(transform, ctx)
 		-- if not success then
 		-- 	error(`Failed to apply to {path}: {result}`)
@@ -165,19 +165,19 @@ local function main(...: string)
 		print("Executing in dry run mode")
 	end
 
-	print(`Loading codemod '{args.codemodPath}'`)
-	local codemod = loadCodemod(args.codemodPath)
+	print(`Loading migration '{args.migrationPath}'`)
+	local migration = loadMigration(args.migrationPath)
 
 	local files = getSourceFiles(args.filePaths)
 	if #files == 0 then
 		error("error: no source files provided")
 	end
 
-	print("Processing codemod options")
-	local codemodOptions = processCodemodOptions(codemod, args.codemodOptions)
+	print("Processing migration options")
+	local migrationOptions = processMigrationOptions(migration, args.migrationOptions)
 
-	print("Applying codemod")
-	applyCodemod(codemod, files, codemodOptions, args.dryRun)
+	print("Applying migration")
+	applyMigration(migration, files, migrationOptions, args.dryRun)
 end
 
 main(...)

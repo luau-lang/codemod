@@ -16,7 +16,7 @@ export type ConfigOption = {
 	default: boolean?,
 }
 
-export type Codemod = {
+export type Migration = {
 	options: { ConfigOption }?,
 	transform: Transformer,
 }
