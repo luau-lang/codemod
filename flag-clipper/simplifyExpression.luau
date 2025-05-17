@@ -103,6 +103,8 @@ function simplify(expression: T.AstExpr, ctx: evaluate.EvaluateContext): T.AstEx
 		return simplifyUnary(expression, ctx)
 	elseif expression.tag == "conditional" then
 		return simplifyConditional(expression, ctx)
+	elseif expression.tag == "table" then
+		return simplifyTable(expression, ctx)
 	end
 
 	return expression
