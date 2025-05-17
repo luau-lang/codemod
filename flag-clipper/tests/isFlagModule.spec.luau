@@ -65,6 +65,20 @@ local function test_blockWithFunctionReturn()
 	assert(kind == "function")
 end
 
+local function test_blockWithVariableReturnPointingToFunction()
+	local block = parser.parse([[
+		local function getFFlag()
+			return game:GetFastFlag("FlagName")
+		end
+
+		return getFFlag
+	]])
+
+	local result, kind = isFlagModule(block, "FlagName")
+	assert(result == true)
+	assert(kind == "function")
+end
+
 return function()
 	test_emptyBlock()
 	test_blockWithNoReturn()
@@ -73,4 +87,5 @@ return function()
 	test_blockWithDefinitionReturn()
 	test_blockWithGetReturn()
 	test_blockWithFunctionReturn()
+	test_blockWithVariableReturnPointingToFunction()
 end
