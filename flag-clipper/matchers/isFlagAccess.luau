@@ -1,18 +1,19 @@
-local T = require("@batteries/syntax/ast_types")
+local luau = require("@lute/luau")
 
-local function isGameGlobal(expr: T.AstExpr)
-	return expr.tag == "global" and expr.name.text == "game"
+local function isGameGlobal(expression: luau.AstExpr)
+	return expression.tag == "global" and expression.name.text == "game"
 end
 
-local function isFlagCall(expr: T.AstExpr)
-	if expr.tag ~= "indexname" then
+local function isFlagCall(expression: luau.AstExpr)
+	if expression.tag ~= "indexname" then
 		return false
 	end
 
-	return isGameGlobal(expr.expr) and (expr.index.text == "DefineFastFlag" or expr.index.text == "GetFastFlag")
+	return isGameGlobal(expression.expression)
+		and (expression.index.text == "DefineFastFlag" or expression.index.text == "GetFastFlag")
 end
 
-local function isFlagAccess(expr: T.AstExpr, flagName: string): boolean
+local function isFlagAccess(expr: luau.AstExpr, flagName: string): boolean
 	if expr.tag ~= "call" then
 		return false
 	end

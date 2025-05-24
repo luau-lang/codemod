@@ -1,13 +1,13 @@
-local T = require("@batteries/syntax/ast_types")
+local luau = require("@lute/luau")
 
 local evaluate = require("./evaluate")
 
 --- Simplifies a conditional based on the evaluated condition
 --- Works for both if statements and if expressions
 local function simplifyConditional(
-	node: T.AstStatIf | T.AstExprIfElse,
+	node: luau.AstStatIf | luau.AstExprIfElse,
 	ctx: evaluate.EvaluateContext
-): T.AstStat | T.AstExpr
+): luau.AstStat | luau.AstExpr
 	-- This is performed in post, so the conditional expression is already simplified
 	local conditionResult = evaluate(node.condition, ctx)
 	if conditionResult == true then
@@ -16,7 +16,7 @@ local function simplifyConditional(
 	end
 
 	-- Handle if we have an elseif
-	local elseifs = {}
+	local elseifs: { luau.AstStatElseIf | luau.AstExprIfElse } = {}
 	for _, elseifNode in node.elseifs do
 		local elseifConditionResult = evaluate(elseifNode.condition, ctx)
 		if elseifConditionResult == true then
@@ -34,6 +34,8 @@ local function simplifyConditional(
 		if #elseifs > 0 then
 			-- Replace if with first else if
 			local firstElseIf = table.remove(elseifs, 1)
+			assert(firstElseIf ~= nil, "Luau")
+
 			node["if"] = firstElseIf["elseif"]
 			node["if"].text = "if"
 			node.condition = firstElseIf.condition

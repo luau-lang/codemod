@@ -1,4 +1,4 @@
-local T = require("@batteries/syntax/ast_types")
+local luau = require("@lute/luau")
 local sourcemap = require("./sourcemap")
 
 export type ModuleName = string
@@ -7,7 +7,7 @@ export type ModuleInfo = {
 	moduleName: string,
 }
 
-export type Resolver = (context: ModuleInfo?, expression: T.AstExpr) -> ModuleInfo?
+export type Resolver = (context: ModuleInfo?, expression: luau.AstExpr) -> ModuleInfo?
 
 local function resolveStringRequire(path: string, from: ModuleName): ModuleInfo
 	assert(false, "TODO: support string requires")
@@ -36,7 +36,7 @@ end
 --- Creates a standard file resolver for require resolution.
 --- Supports string requires, including aliases (based off luaurc), as well as Roblox style requires
 local function createFileResolver(sourcemapData: sourcemap.SourcemapData?)
-	return function(context: ModuleInfo?, expression: T.AstExpr): ModuleInfo?
+	return function(context: ModuleInfo?, expression: luau.AstExpr): ModuleInfo?
 		if context == nil then
 			return nil
 		end

@@ -1,5 +1,6 @@
+local luau = require("@lute/luau")
+
 local visitor = require("@batteries/syntax/visitor")
-local T = require("@batteries/syntax/ast_types")
 
 local isFlagAccess = require("./isFlagAccess")
 local isFlagFunction = require("./isFlagFunction")
@@ -8,14 +9,14 @@ type FlagModuleKind =
 	| "constant" -- Module returned game:DefineFastFlag() / game:GetFastFlag() directly
 	| "function" -- Module returned a function that retrieves the FFlag value
 
-local function isFlagReference(body: T.AstStatBlock, variable: T.AstLocal, flagName: string): boolean
+local function isFlagReference(body: luau.AstStatBlock, variable: luau.AstLocal, flagName: string): boolean
 	-- TODO: re-use the TrackReferences set up
 	-- Right now, it has a circular dependency
 
 	local trackLocalsVisitor = visitor.createVisitor()
 	local result = false
 
-	trackLocalsVisitor.visitLocalDeclaration = function(node: T.AstStatLocal)
+	trackLocalsVisitor.visitLocalDeclaration = function(node: luau.AstStatLocal)
 		for i, var in node.variables do
 			if var.node == variable then
 				if #node.values >= i then
@@ -28,7 +29,7 @@ local function isFlagReference(body: T.AstStatBlock, variable: T.AstLocal, flagN
 		return true
 	end
 
-	trackLocalsVisitor.visitLocalFunction = function(node: T.AstStatLocalFunction)
+	trackLocalsVisitor.visitLocalFunction = function(node: luau.AstStatLocalFunction)
 		if node.name == variable then
 			result = isFlagFunction.isStmtFlagFunction(node, flagName)
 			return false
@@ -42,7 +43,7 @@ local function isFlagReference(body: T.AstStatBlock, variable: T.AstLocal, flagN
 	return result
 end
 
-local function isFlagModule(body: T.AstStatBlock, flagName: string): (boolean, FlagModuleKind)
+local function isFlagModule(body: luau.AstStatBlock, flagName: string): (boolean, FlagModuleKind)
 	if #body.statements == 0 then
 		return false :: any
 	end

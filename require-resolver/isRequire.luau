@@ -1,6 +1,6 @@
-local T = require("@batteries/syntax/ast_types")
+local luau = require("@lute/luau")
 
-local function isRequire(node: T.AstExpr)
+local function isRequire(node: luau.AstExpr)
 	return node.tag == "call"
 		and node.func.tag == "global"
 		and node.func.name.text == "require"

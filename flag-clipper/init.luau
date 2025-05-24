@@ -1,7 +1,8 @@
+local luau = require("@lute/luau")
+
 local parser = require("@batteries/syntax/parser")
 local printer = require("@batteries/syntax/printer")
 local visitor = require("@batteries/syntax/visitor")
-local T = require("@batteries/syntax/ast_types")
 
 local codemod = require("./types")
 local sourcemap = require("./require-resolver/sourcemap")
@@ -16,7 +17,7 @@ local simplifyBlock = require("@self/simplifyBlock")
 --- Global cache for sourcemap data
 local SourcemapData: sourcemap.SourcemapData? = nil
 
-local function inplaceReplace(old: T.AstExpr, new: T.AstExpr)
+local function inplaceReplace(old: luau.AstExpr, new: luau.AstExpr)
 	if old == new then
 		return
 	end
@@ -69,7 +70,7 @@ local function transform(ctx: codemod.Context<Options>)
 
 	-- TODO: might want to double check the complexity here, since `simplifyExpression` is also recursive
 	-- do we end up simplifying it twice?
-	flagVisitor.visitExpressionEnd = function(expression: T.AstExpr)
+	flagVisitor.visitExpressionEnd = function(expression: luau.AstExpr)
 		local newExpression = simplifyExpression(expression, simplifyCtx)
 		inplaceReplace(expression, newExpression)
 	end

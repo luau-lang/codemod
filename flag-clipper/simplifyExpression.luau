@@ -1,19 +1,19 @@
-local T = require("@batteries/syntax/ast_types")
+local luau = require("@lute/luau")
 
 local evaluate = require("./evaluate")
 local simplifyConditional = require("./simplifyConditional")
 
-local function isConstantTrueValue(expression: T.AstExpr, ctx: evaluate.EvaluateContext)
+local function isConstantTrueValue(expression: luau.AstExpr, ctx: evaluate.EvaluateContext)
 	local value = evaluate(expression, ctx)
 	return value == true
 end
 
-local function isConstantFalseValue(expression: T.AstExpr, ctx: evaluate.EvaluateContext)
+local function isConstantFalseValue(expression: luau.AstExpr, ctx: evaluate.EvaluateContext)
 	local value = evaluate(expression, ctx)
 	return value == false
 end
 
-local function makePosition(startLine: number, startColumn: number, endLine: number, endColumn: number): T.Position
+local function makePosition(startLine: number, startColumn: number, endLine: number, endColumn: number): luau.Position
 	return {
 		begin = {
 			line = startLine,
@@ -26,7 +26,7 @@ local function makePosition(startLine: number, startColumn: number, endLine: num
 	}
 end
 
-local function makeConstant(value: boolean): T.AstExprConstantBool
+local function makeConstant(value: boolean): luau.AstExprConstantBool
 	return {
 		tag = "boolean",
 		leadingTrivia = {},
@@ -37,7 +37,7 @@ local function makeConstant(value: boolean): T.AstExprConstantBool
 	}
 end
 
-local function simplifyUnary(expression: T.AstExprUnary, ctx: evaluate.EvaluateContext): T.AstExpr
+local function simplifyUnary(expression: luau.AstExprUnary, ctx: evaluate.EvaluateContext): luau.AstExpr
 	if expression.operator.text == "not" then
 		if isConstantTrueValue(expression.operand, ctx) then
 			return makeConstant(false)
@@ -49,7 +49,7 @@ local function simplifyUnary(expression: T.AstExprUnary, ctx: evaluate.EvaluateC
 	return expression
 end
 
-local function simplifyBinary(expression: T.AstExprBinary, ctx: evaluate.EvaluateContext): T.AstExpr
+local function simplifyBinary(expression: luau.AstExprBinary, ctx: evaluate.EvaluateContext): luau.AstExpr
 	if expression.operator.text == "and" then
 		if isConstantTrueValue(expression.lhsoperand, ctx) then
 			-- true and x => x
@@ -84,7 +84,7 @@ local function simplifyBinary(expression: T.AstExprBinary, ctx: evaluate.Evaluat
 end
 
 --- Removes fields from a table that resolve to the removed Flag
-local function simplifyTable(expression: T.AstExprTable, ctx: evaluate.EvaluateContext)
+local function simplifyTable(expression: luau.AstExprTable, ctx: evaluate.EvaluateContext)
 	local entries = {}
 	for _, field in expression.entries do
 		if ctx.references:isReference(field.value) then
@@ -96,7 +96,7 @@ local function simplifyTable(expression: T.AstExprTable, ctx: evaluate.EvaluateC
 	return expression
 end
 
-function simplify(expression: T.AstExpr, ctx: evaluate.EvaluateContext): T.AstExpr
+function simplify(expression: luau.AstExpr, ctx: evaluate.EvaluateContext): luau.AstExpr
 	if expression.tag == "binary" then
 		return simplifyBinary(expression, ctx)
 	elseif expression.tag == "unary" then

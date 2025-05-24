@@ -1,6 +1,6 @@
 local fs = require("@lute/fs")
+local luau = require("@lute/luau")
 local parser = require("@batteries/syntax/parser")
-local T = require("@batteries/syntax/ast_types")
 
 local isFlagModule = require("./matchers/isFlagModule")
 
@@ -25,7 +25,7 @@ type TableData = {
 }
 
 local function resolveRotrieverPackageLink(
-	body: T.AstStatBlock,
+	body: luau.AstStatBlock,
 	flagName: string,
 	requireInfo: requireTracer.RequireTracerResult,
 	sourcemapData: sourcemap.SourcemapData?
@@ -76,7 +76,7 @@ local function resolveRotrieverPackageLink(
 end
 
 local function getModuleTableInfo(
-	body: T.AstStatBlock,
+	body: luau.AstStatBlock,
 	flagName: string,
 	requireInfo: requireTracer.RequireTracerResult,
 	sourcemapData: sourcemap.SourcemapData?
@@ -120,7 +120,7 @@ local function getModuleTableInfo(
 end
 
 function getModuleInfo(
-	expression: T.AstExpr,
+	expression: luau.AstExpr,
 	flagName: string,
 	requireInfo: requireTracer.RequireTracerResult,
 	sourcemapData: sourcemap.SourcemapData?

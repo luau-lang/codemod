@@ -1,5 +1,6 @@
+local luau = require("@lute/luau")
+
 local visitor = require("@batteries/syntax/visitor")
-local T = require("@batteries/syntax/ast_types")
 
 local isRequire = require("../require-resolver/isRequire")
 local sourcemap = require("../require-resolver/sourcemap")
@@ -20,17 +21,17 @@ type TableData = {
 type TrackReferencesData = {
 	--- A set of AstLocals that are known to correspond to a flag access
 	--- The locals can be a constant reference, or a function definition
-	_locals: { [T.AstLocal]: true },
+	_locals: { [luau.AstLocal]: true },
 	--- A set of expressions that are known to correspond to a flag access
 	--- This could be a local reference, or a require module
-	_expressions: { [T.AstExpr]: true },
+	_expressions: { [luau.AstExpr]: true },
 	--- A set of global function names that are known to correspond to a flag access
 	--- Unlike flagLocalsSet, we do not track this via AstLocal reference, but just by the function name
 	_globalNames: { [string]: true },
 	--- Stores local variables that correspond to tables, and the relevant properties inside of that table that
 	--- correspond to a flag
-	_tableData: { [T.AstLocal]: TableData },
-	_externalTableData: { [T.AstExpr]: TableData },
+	_tableData: { [luau.AstLocal]: TableData },
+	_externalTableData: { [luau.AstExpr]: TableData },
 	_visitor: visitor.Visitor,
 }
 
@@ -49,7 +50,7 @@ function TrackReferences.new(
 	self._externalTableData = {}
 	self._visitor = visitor.createVisitor()
 
-	self._visitor.visitExpression = function(node: T.AstExpr)
+	self._visitor.visitExpression = function(node: luau.AstExpr)
 		if isFlagAccess(node, flagName) then
 			self._expressions[node] = true
 		elseif isFlagFunction.isExprFlagFunction(node, flagName) then
@@ -75,16 +76,16 @@ function TrackReferences.new(
 		return true
 	end
 
-	self._visitor.visitExpressionEnd = function(node: T.AstExpr)
+	self._visitor.visitExpressionEnd = function(node: luau.AstExpr)
 		if node.tag == "call" then
 			local callExpr = node.func
 			if self._expressions[callExpr] then
 				self._expressions[node] = true
 			end
 		elseif node.tag == "indexname" then
-			local tableData = if node.expr.tag == "local"
-				then self._tableData[node.expr["local"]]
-				else self._externalTableData[node.expr]
+			local tableData = if node.expression.tag == "local"
+				then self._tableData[node.expression["local"]]
+				else self._externalTableData[node.expression]
 
 			if tableData and table.find(tableData.flagProperties, node.index.text) then
 				self._expressions[node] = true
@@ -92,7 +93,7 @@ function TrackReferences.new(
 		end
 	end
 
-	self._visitor.visitLocalDeclarationEnd = function(node: T.AstStatLocal)
+	self._visitor.visitLocalDeclarationEnd = function(node: luau.AstStatLocal)
 		for idx, variable in node.variables do
 			if #node.values < idx then
 				break
@@ -121,14 +122,14 @@ function TrackReferences.new(
 		end
 	end
 
-	self._visitor.visitLocalFunction = function(node: T.AstStatLocalFunction)
+	self._visitor.visitLocalFunction = function(node: luau.AstStatLocalFunction)
 		if isFlagFunction.isStmtFlagFunction(node, flagName) then
 			self._locals[node.name] = true
 		end
 		return true
 	end
 
-	self._visitor.visitFunction = function(node: T.AstStatFunction)
+	self._visitor.visitFunction = function(node: luau.AstStatFunction)
 		if isFlagFunction.isStmtFlagFunction(node, flagName) then
 			if node.name.tag == "local" then
 				self._locals[node.name["local"]] = true
@@ -142,15 +143,15 @@ function TrackReferences.new(
 	return setmetatable(self, TrackReferences)
 end
 
-function TrackReferences.visit(self: TrackReferences, block: T.AstStatBlock)
+function TrackReferences.visit(self: TrackReferences, block: luau.AstStatBlock)
 	visitor.visitBlock(block, self._visitor)
 end
 
-function TrackReferences._visitExpressionForTesting(self: TrackReferences, expression: T.AstExpr)
+function TrackReferences._visitExpressionForTesting(self: TrackReferences, expression: luau.AstExpr)
 	visitor.visitExpression(expression, self._visitor)
 end
 
-function TrackReferences.isLocalReference(self: TrackReferences, astLocal: T.AstLocal): boolean
+function TrackReferences.isLocalReference(self: TrackReferences, astLocal: luau.AstLocal): boolean
 	return self._locals[astLocal]
 end
 
@@ -160,7 +161,7 @@ end
 
 --- Returns whether the provided expression is a reference to the flag being removed
 --- Either a direct reference, or an indirect reference via a local
-function TrackReferences.isReference(self: TrackReferences, expression: T.AstExpr): boolean
+function TrackReferences.isReference(self: TrackReferences, expression: luau.AstExpr): boolean
 	return self._expressions[expression] == true
 end
 

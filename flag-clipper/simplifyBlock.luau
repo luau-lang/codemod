@@ -1,9 +1,9 @@
-local T = require("@batteries/syntax/ast_types")
+local luau = require("@lute/luau")
 
 local evaluate = require("./evaluate")
 local simplifyConditional = require("./simplifyConditional")
 
-local function space(count): T.Trivia
+local function space(count): luau.Trivia
 	return {
 		tag = "whitespace",
 		text = string.rep(" ", count),
@@ -11,7 +11,7 @@ local function space(count): T.Trivia
 	} :: any
 end
 
-local function simplifyBlock(block: T.AstStatBlock, ctx: evaluate.EvaluateContext): T.AstStatBlock
+local function simplifyBlock(block: luau.AstStatBlock, ctx: evaluate.EvaluateContext): luau.AstStatBlock
 	local statements = {}
 
 	for _, statement in block.statements do
