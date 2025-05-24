@@ -1,4 +1,4 @@
-local codemod = require("../init").transform
+local codemod = require("../").transform
 local types = require("../../types")
 
 local function apply(source: string, flagName: string?, value: boolean?)

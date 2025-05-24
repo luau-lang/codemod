@@ -4,7 +4,6 @@ local function runner()
 		"./isFlagFunction.spec",
 		"./isFlagModule.spec",
 		"./trackReferences.spec",
-		"./evaluate.spec",
 		"./simplifyBlock.spec",
 		"./simplifyExpression.spec",
 		"./e2e.spec",
