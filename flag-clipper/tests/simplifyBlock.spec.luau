@@ -173,6 +173,19 @@ local function test_simplifyIfAndElseIf()
 	assert(apply(source, "FlagName", false) == expected)
 end
 
+local function test_simplifyBlockIntoNothing()
+	local source = [[
+		if game:GetFastFlag("FlagName") then
+			local x = 1
+		end
+	]]
+
+	local expected = [[
+	]]
+
+	assert(apply(source, "FlagName", false) == expected)
+end
+
 return function()
 	test_removeDefinition()
 	test_removeGetterCall()
@@ -185,4 +198,5 @@ return function()
 	test_simplifyIfStatementRemoveIfKeepElseif()
 	test_simplifyIfIntoElseif()
 	test_simplifyIfAndElseIf()
+	test_simplifyBlockIntoNothing()
 end

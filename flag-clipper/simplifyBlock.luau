@@ -77,7 +77,10 @@ local function simplifyBlock(block: luau.AstStatBlock, ctx: evaluate.EvaluateCon
 			table.insert(statements, statement)
 		elseif statement.tag == "conditional" then
 			local simplified = simplifyConditional(statement, ctx)
-			if simplified.tag == "conditional" then
+			if simplified == nil then
+				-- Conditional is removed
+				continue
+			elseif simplified.tag == "conditional" then
 				table.insert(statements, simplified)
 			elseif simplified.tag == "block" then
 				-- If processed down to a block, flatten with the main block
