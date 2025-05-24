@@ -17,7 +17,7 @@ local simplifyBlock = require("@self/simplifyBlock")
 --- Global cache for sourcemap data
 local SourcemapData: sourcemap.SourcemapData? = nil
 
-local function inplaceReplace(old: luau.AstExpr, new: luau.AstExpr)
+local function inplaceReplace(old: luau.AstExpr, new: luau.AstExpr, references: TrackReferences.TrackReferences)
 	if old == new then
 		return
 	end
@@ -29,6 +29,10 @@ local function inplaceReplace(old: luau.AstExpr, new: luau.AstExpr)
 	for k, v in new do
 		old[k] = v
 	end
+
+	-- Since `new` expr is now replacing `old`, we need to update the references mapping as it works
+	-- based on table pointer equality
+	references._expressions[old] = references._expressions[new]
 end
 
 type Options = {
@@ -72,7 +76,7 @@ local function transform(ctx: codemod.Context<Options>)
 	-- do we end up simplifying it twice?
 	flagVisitor.visitExpressionEnd = function(expression: luau.AstExpr)
 		local newExpression = simplifyExpression(expression, simplifyCtx)
-		inplaceReplace(expression, newExpression)
+		inplaceReplace(expression, newExpression, references)
 	end
 
 	flagVisitor.visitBlockEnd = function(block)
