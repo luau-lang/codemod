@@ -192,6 +192,8 @@ local function main(...: string)
 
 	print("Applying migration")
 	applyMigration(migration, files, migrationOptions, args.dryRun)
+
+	print(`Processed {#files} files!`)
 end
 
 main(...)
