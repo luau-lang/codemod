@@ -9,8 +9,9 @@ export type ModuleInfo = {
 
 export type Resolver = (context: ModuleInfo?, expression: luau.AstExpr) -> ModuleInfo?
 
-local function resolveStringRequire(path: string, from: ModuleName): ModuleInfo
-	assert(false, "TODO: support string requires")
+local function resolveStringRequire(path: string, from: ModuleName): ModuleInfo?
+	print("TODO: support string requires")
+	return nil
 end
 
 local function getParentPath(path: string)
