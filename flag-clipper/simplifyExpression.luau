@@ -13,42 +13,6 @@ local function isConstantFalseValue(expression: luau.AstExpr, ctx: evaluate.Eval
 	return value == false
 end
 
-local function makePosition(startLine: number, startColumn: number, endLine: number, endColumn: number): luau.Position
-	return {
-		begin = {
-			line = startLine,
-			column = startColumn,
-		},
-		["end"] = {
-			line = endLine,
-			column = endColumn,
-		},
-	}
-end
-
-local function makeConstant(value: boolean): luau.AstExprConstantBool
-	return {
-		tag = "boolean",
-		leadingTrivia = {},
-		position = makePosition(0, 0, 0, 0), -- TODO
-		text = tostring(value),
-		trailingTrivia = {},
-		value = value,
-	}
-end
-
-local function simplifyUnary(expression: luau.AstExprUnary, ctx: evaluate.EvaluateContext): luau.AstExpr
-	if expression.operator.text == "not" then
-		if isConstantTrueValue(expression.operand, ctx) then
-			return makeConstant(false)
-		elseif isConstantFalseValue(expression.operand, ctx) then
-			return makeConstant(true)
-		end
-	end
-
-	return expression
-end
-
 local function simplifyBinary(expression: luau.AstExprBinary, ctx: evaluate.EvaluateContext): luau.AstExpr
 	if expression.operator.text == "and" then
 		if isConstantTrueValue(expression.lhsoperand, ctx) then
@@ -99,8 +63,6 @@ end
 function simplify(expression: luau.AstExpr, ctx: evaluate.EvaluateContext): luau.AstExpr
 	if expression.tag == "binary" then
 		return simplifyBinary(expression, ctx)
-	elseif expression.tag == "unary" then
-		return simplifyUnary(expression, ctx)
 	elseif expression.tag == "conditional" then
 		return simplifyConditional(expression, ctx)
 	elseif expression.tag == "table" then

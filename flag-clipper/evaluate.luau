@@ -16,6 +16,10 @@ local function evaluate(expression: luau.AstExpr, ctx: EvaluateContext): boolean
 		return ctx.flagValue
 	end
 
+	if expression.tag == "unary" and ctx.references:isReference(expression.operand) then
+		return not ctx.flagValue
+	end
+
 	return nil
 end
 

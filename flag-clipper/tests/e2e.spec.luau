@@ -134,7 +134,7 @@ local function test_overallSingleFile()
 	assert(apply(source) == expected)
 end
 
-local function test_compoundIfExpression()
+local function test_compoundCondition()
 	local source = [[
 		if game:GetFastFlag("FlagName") or value then
 			local x = 1
@@ -147,12 +147,27 @@ local function test_compoundIfExpression()
 			local x = 1
 	]]
 
-	print(apply(source, "FlagName", true))
+	assert(apply(source, "FlagName", true) == expected)
+end
+
+local function test_compoundConditionWithUnary()
+	local source = [[
+		if value and not game:GetFastFlag("FlagName") then
+			local x = 1
+		else
+			local x = 2
+		end
+	]]
+
+	local expected = [[
+			local x = 2
+	]]
 
 	assert(apply(source, "FlagName", true) == expected)
 end
 
 return function()
 	test_markFlagModuleForDeletion()
-	test_compoundIfExpression()
+	test_compoundCondition()
+	test_compoundConditionWithUnary()
 end
