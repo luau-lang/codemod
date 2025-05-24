@@ -30,6 +30,10 @@ function path.dirname(filepath: string): string?
 	end
 end
 
+function path.isAbsolute(filepath: string): boolean
+	return filepath:sub(1, 1) == "/"
+end
+
 function path.joinPath(basePath: string, file: string): string
 	-- TODO: use a proper path library to join paths
 	if basePath:sub(-1) == "/" then

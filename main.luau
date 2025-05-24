@@ -1,4 +1,5 @@
 local fs = require("@lute/fs")
+local process = require("@lute/process")
 
 local arguments = require("./lib/arguments")
 local ignore = require("./lib/ignore")
@@ -49,11 +50,15 @@ local function getSourceFiles(paths: { string }): { string }
 
 	local ignoreResolver = ignore.new()
 
-	for _, path in paths do
-		if fs.type(path) == "dir" then
-			extend(files, traverseDirectoryRecursive(path, ignoreResolver))
+	for _, filepath in paths do
+		if not path.isAbsolute(filepath) then
+			filepath = path.joinPath(process.cwd(), filepath)
+		end
+
+		if fs.type(filepath) == "dir" then
+			extend(files, traverseDirectoryRecursive(filepath, ignoreResolver))
 		else
-			table.insert(files, path)
+			table.insert(files, filepath)
 		end
 	end
 
