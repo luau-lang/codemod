@@ -1,3 +1,5 @@
+local strings = require("./strings")
+
 export type Config = {
 	--- Prevent making changes to files
 	dryRun: boolean,
@@ -9,22 +11,6 @@ export type Config = {
 	--- Note: no directory traversal or filtering has been applied on this list
 	filePaths: { string },
 }
-
-local function startsWith(str: string, prefix: string): boolean
-	if #prefix > #str then
-		return false
-	end
-
-	return str:sub(1, #prefix) == prefix
-end
-
-local function removePrefix(str: string, prefix: string): string
-	if not startsWith(str, prefix) then
-		return str
-	end
-
-	return str:sub(#prefix + 1)
-end
 
 local function parse(arguments: { string }): Config
 	-- TODO: replace with proper CLI system
@@ -46,8 +32,8 @@ local function parse(arguments: { string }): Config
 	while i <= #arguments do
 		local argument = arguments[i]
 
-		if startsWith(argument, "--") then
-			local name = removePrefix(argument, "--")
+		if strings.startsWith(argument, "--") then
+			local name = strings.removePrefix(argument, "--")
 
 			if config.migrationPath == nil then
 				-- Options before the codemod file are parsed as options for the tool itself

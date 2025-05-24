@@ -1,0 +1,27 @@
+local strings = {}
+
+function strings.startsWith(str: string, prefix: string): boolean
+	if #prefix > #str then
+		return false
+	end
+
+	return str:sub(1, #prefix) == prefix
+end
+
+function strings.removePrefix(str: string, prefix: string): string
+	if not strings.startsWith(str, prefix) then
+		return str
+	end
+
+	return str:sub(#prefix + 1)
+end
+
+function strings.endsWith(str: string, suffix: string): boolean
+	return str:sub(-#suffix) == suffix
+end
+
+function strings.trim(str: string): string
+	return str:match("^%s*(.-)%s*$")
+end
+
+return strings

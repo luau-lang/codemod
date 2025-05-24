@@ -1,6 +1,9 @@
 local fs = require("@lute/fs")
 
 local arguments = require("./lib/arguments")
+local ignore = require("./lib/ignore")
+local path = require("./lib/path")
+local strings = require("./lib/strings")
 local types = require("./types")
 
 local function exhaustiveMatch(value: never): never
@@ -13,26 +16,26 @@ local function extend<T>(tbl: { T }, other: { T })
 	end
 end
 
-local function endsWith(str: string, suffix: string): boolean
-	return str:sub(-#suffix) == suffix
-end
-
-local function traverseDirectoryRecursive(path: string): { string }
+local function traverseDirectoryRecursive(directory: string, ignoreResolver: ignore.IgnoreResolver): { string }
 	local results = {}
 
-	for _, entry in fs.listdir(path) do
-		local fullPath = `{path}/{entry.name}` -- TODO: os specific path join?
-
-		-- TODO: generalise the ignore logic to support gitignores
-		if entry.name == ".git" then
-			continue
-		end
+	for _, entry in fs.listdir(directory) do
+		local fullPath = path.joinPath(directory, entry.name)
 
 		if entry.type == "dir" then
-			extend(results, traverseDirectoryRecursive(fullPath))
+			if ignoreResolver:isIgnoredDirectory(fullPath) then
+				print("Skipping", fullPath)
+				continue
+			end
+
+			extend(results, traverseDirectoryRecursive(fullPath, ignoreResolver))
 		else
 			-- TODO: allow customisation of the filter when traversing a directory. e.g., globs? file endings? ignore paths?
-			if endsWith(entry.name, ".luau") or endsWith(entry.name, ".lua") then
+			if strings.endsWith(entry.name, ".luau") or strings.endsWith(entry.name, ".lua") then
+				if ignoreResolver:isIgnoredFile(fullPath) then
+					print("Skipping", fullPath)
+					continue
+				end
 				table.insert(results, fullPath)
 			end
 		end
@@ -44,9 +47,11 @@ end
 local function getSourceFiles(paths: { string }): { string }
 	local files = {}
 
+	local ignoreResolver = ignore.new()
+
 	for _, path in paths do
 		if fs.type(path) == "dir" then
-			extend(files, traverseDirectoryRecursive(path))
+			extend(files, traverseDirectoryRecursive(path, ignoreResolver))
 		else
 			table.insert(files, path)
 		end
@@ -171,6 +176,7 @@ local function main(...: string)
 	print(`Loading migration '{args.migrationPath}'`)
 	local migration = loadMigration(args.migrationPath)
 
+	print("Finding source files")
 	local files = getSourceFiles(args.filePaths)
 	if #files == 0 then
 		error("error: no source files provided")
