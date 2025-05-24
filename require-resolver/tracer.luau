@@ -60,7 +60,7 @@ local function getDependent(tracer: RequireTracer, node: luau.AstExpr): luau.Ast
 		return node.expression
 	elseif node.tag == "call" and node.self then
 		assert(node.func.tag == "indexname")
-		return node.func.expr
+		return node.func.expression
 	elseif node.tag == "group" then
 		return node.expression
 	end
