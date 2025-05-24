@@ -1,3 +1,5 @@
+local strings = require("./strings")
+
 local path = {}
 
 function path.basename(filepath: string): string
@@ -36,6 +38,13 @@ end
 
 function path.joinPath(basePath: string, file: string): string
 	-- TODO: use a proper path library to join paths
+
+	if file == "." then
+		return basePath
+	elseif strings.startsWith(file, "./") then
+		file = strings.removePrefix(file, "./")
+	end
+
 	if basePath:sub(-1) == "/" then
 		return basePath .. file
 	else
