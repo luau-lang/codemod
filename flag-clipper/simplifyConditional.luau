@@ -36,10 +36,10 @@ local function simplifyConditional(
 			local firstElseIf = table.remove(elseifs, 1)
 			assert(firstElseIf ~= nil, "Luau")
 
-			node["if"] = firstElseIf["elseif"]
-			node["if"].text = "if"
+			node.ifKeyword = firstElseIf.elseifKeyword
+			node.ifKeyword.text = "if"
 			node.condition = firstElseIf.condition
-			node["then"] = firstElseIf["then"]
+			node.thenKeyword = firstElseIf.thenKeyword
 			node.consequent = firstElseIf.consequent
 			node.elseifs = elseifs
 
