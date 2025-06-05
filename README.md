@@ -20,6 +20,10 @@ $ lute codemod/main.luau <codemod file> [migration options...] <files...>
 This loads the provided code migration file and executes it on the set of files / directories provided.
 Any options are parsed and passed to the running migration.
 
+> [!NOTE]
+> Due to the way Lute works, the path of `<codemod file>` must be relative to the location of `codemod/main.luau`.
+> e.g., to use the `flag-clipper` codemod, you would pass `./flag-clipper`. [Upstream Issue](https://github.com/luau-lang/lute/issues/321)
+
 ## Writing a code migration
 
 ### Transformer function
@@ -83,6 +87,30 @@ function migration(ctx)
     end
 
     visitor.visitBlock(parsedResult.block, uppercaseVisitor)
+
+    return printer.printfile(parsedResult)
+end
+
+return migration
+```
+
+For a more declarative approach, you can use a query-based select function:
+
+```luau
+local parser = require("@batteries/syntax/parser")
+local printer = require("@batteries/syntax/printer")
+local query = require("./lib/query")
+
+function migration(ctx)
+    local parsedResult = parser.parsefile(ctx.source)
+
+    local requireCalls = query.selectExpression(parsedResult.root, function(node)
+        return isRequireCall(node)
+    end)
+
+    for _, call in requireCalls do
+        call.arguments[1].node = convertToStringRequire(call.arguments[1])
+    end
 
     return printer.printfile(parsedResult)
 end
