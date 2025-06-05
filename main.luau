@@ -158,7 +158,7 @@ local function applyMigration(
 		if result == types.DELETION_MARKER then
 			print(`Marking {path} for deletion`)
 			table.insert(deletedPaths, path)
-		elseif not dryRun then
+		elseif result ~= source and not dryRun then
 			fs.writestringtofile(path, result)
 		end
 	end
