@@ -21,7 +21,8 @@ function strings.endsWith(str: string, suffix: string): boolean
 end
 
 function strings.trim(str: string): string
-	return str:match("^%s*(.-)%s*$")
+	-- Pattern is guaranteed to return a result
+	return str:match("^%s*(.-)%s*$") :: string
 end
 
 return strings

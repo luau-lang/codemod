@@ -16,7 +16,7 @@ local function simplifyConditional(
 	end
 
 	-- Handle if we have an elseif
-	local elseifs: { luau.AstStatElseIf | luau.AstExprIfElse } = {}
+	local elseifs: { luau.AstStatElseIf | luau.AstExprIfElseIfs } = {}
 	for _, elseifNode in node.elseifs do
 		local elseifConditionResult = evaluate(elseifNode.condition, ctx)
 		if elseifConditionResult == true then
@@ -36,7 +36,7 @@ local function simplifyConditional(
 			local firstElseIf = table.remove(elseifs, 1)
 			assert(firstElseIf ~= nil, "Luau")
 
-			node.ifKeyword = firstElseIf.elseifKeyword
+			node.ifKeyword = (firstElseIf.elseifKeyword :: any) :: luau.Token<"if">
 			node.ifKeyword.text = "if"
 			node.condition = firstElseIf.condition
 			node.thenKeyword = firstElseIf.thenKeyword
