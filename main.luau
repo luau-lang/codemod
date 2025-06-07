@@ -5,7 +5,7 @@ local arguments = require("./lib/arguments")
 local ignore = require("./lib/ignore")
 local path = require("./lib/path")
 local strings = require("./lib/strings")
-local types = require("./types")
+local types = require("./lib/types")
 
 local function exhaustiveMatch(value: never): never
 	error(`Unknown value in exhaustive match: {value}`)

@@ -4,7 +4,7 @@ local parser = require("@batteries/syntax/parser")
 local printer = require("@batteries/syntax/printer")
 local visitor = require("@batteries/syntax/visitor")
 
-local codemod = require("./types")
+local codemod = require("./lib/types")
 local sourcemap = require("./require-resolver/sourcemap")
 local requireTracer = require("./require-resolver/tracer")
 local fileResolver = require("./require-resolver/resolver")

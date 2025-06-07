@@ -120,10 +120,10 @@ return migration
 
 ### Deleting a file
 
-If the migration wishes to delete the file given, it should return the deletion marker, available at `codemod/types.luau`
+If the migration wishes to delete the file given, it should return the deletion marker, available at `codemod/lib/types.luau`
 
 ```luau
-local driver = require("codemod/types")
+local driver = require("codemod/lib/types")
 
 local function migration(ctx)
     if shouldDeleteFile(ctx.source) then
