@@ -43,17 +43,19 @@ type Options = {
 	sourcemap: string,
 }
 
-local function transform(ctx: codemod.Context<Options>)
-	local result = parser.parsefile(ctx.source)
-	local block = result.root
-
+local function initialize(ctx: codemod.InitializationContext<Options>)
 	print(`Removing {ctx.options.flag} as {ctx.options.value}`)
 
 	-- Populate sourcemap data on first codemod execution
-	if not SourcemapData and ctx.options.sourcemap ~= "" then
+	if ctx.options.sourcemap ~= "" then
 		print(`Parsing sourcemap at {ctx.options.sourcemap}`)
 		SourcemapData = sourcemap.parseSourcemap(ctx.options.sourcemap)
 	end
+end
+
+local function transform(ctx: codemod.Context<Options>)
+	local result = parser.parsefile(ctx.source)
+	local block = result.root
 
 	local requireInfo = requireTracer.traceRequires(block, ctx.path, fileResolver.createFileResolver(SourcemapData))
 	local references = TrackReferences.new(ctx.options.flag, requireInfo, SourcemapData)
@@ -95,5 +97,6 @@ return {
 		{ name = "value", kind = "boolean", default = true },
 		{ name = "sourcemap", kind = "string", default = "" },
 	},
+	initialize = initialize,
 	transform = transform,
 }

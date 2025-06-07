@@ -90,6 +90,9 @@ local function loadMigration(path: string): types.Migration
 				)
 			end
 		end
+		if (loaded :: any).initialize then
+			assert(typeof(loaded.initialize) == "function", `Expected {path}.initialize to be a function`)
+		end
 		return loaded :: types.Migration
 	else
 		error(`Expected '{path}' to return a function or table, got {typeof(loaded)}`)
@@ -134,6 +137,14 @@ local function applyMigration(
 	dryRun: boolean
 )
 	local deletedPaths = {}
+
+	if migration.initialize then
+		print("Initializing migration")
+		local ctx = {
+			options = options,
+		}
+		migration.initialize(ctx)
+	end
 
 	for _, path in paths do
 		print(`Applying to {path}`)

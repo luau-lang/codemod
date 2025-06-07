@@ -210,3 +210,31 @@ The flags are passed as:
 ```
 $ lute codemod/main.luau transform.luau --name STRING --value BOOLEAN <files...>
 ```
+
+### Migration Initialization
+
+Some migrations have initialization steps they wish to take before executing the migration on each file.
+For example, this may include parsing and loading a sourcemap for require resolution, or installing a pre-requisite
+dependency for the migration.
+
+To do so, the migration module can return a table with an `initialize` function:
+
+```luau
+local function initialize(ctx)
+    -- ...
+end
+
+local function migration(ctx)
+    -- ...
+end
+
+return {
+    options = {
+        ...
+    },
+    initialize = initialize,
+    transform = migration
+}
+```
+
+The initialize function is executed once at the start by the driver, before the transform is applied on files.

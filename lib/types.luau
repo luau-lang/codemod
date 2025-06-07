@@ -16,8 +16,13 @@ export type ConfigOption = {
 	default: boolean?,
 }
 
+export type InitializationContext<Options = { [any]: any }> = {
+	options: Options,
+}
+
 export type Migration = {
 	options: { ConfigOption }?,
+	initialize: ((InitializationContext) -> ())?,
 	transform: Transformer,
 }
 
