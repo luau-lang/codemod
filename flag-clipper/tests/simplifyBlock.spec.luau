@@ -186,6 +186,36 @@ local function test_simplifyBlockIntoNothing()
 	assert(apply(source, "FlagName", false) == expected)
 end
 
+local function test_simplifyAssignmentAfterBlockCollapse()
+	local source = [[
+		local variable
+		if game:GetFastFlag("FlagName") then
+			variable = 1
+		end
+	]]
+
+	local expected = [[
+		local variable = 1
+	]]
+
+	assert(apply(source, "FlagName", true) == expected)
+end
+
+local function test_simplifyAssignmentWhenInitiallyAssignedToAValueAfterBlockCollapse()
+	local source = [[
+		local variable = true
+		if game:GetFastFlag("FlagName") then
+			variable = 1
+		end
+	]]
+
+	local expected = [[
+		local variable = 1
+	]]
+
+	assert(apply(source, "FlagName", true) == expected)
+end
+
 return function()
 	test_removeDefinition()
 	test_removeGetterCall()
@@ -199,4 +229,6 @@ return function()
 	test_simplifyIfIntoElseif()
 	test_simplifyIfAndElseIf()
 	test_simplifyBlockIntoNothing()
+	test_simplifyAssignmentAfterBlockCollapse()
+	test_simplifyAssignmentWhenInitiallyAssignedToAValueAfterBlockCollapse()
 end

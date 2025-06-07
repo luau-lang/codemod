@@ -3,14 +3,6 @@ local luau = require("@lute/luau")
 local evaluate = require("./evaluate")
 local simplifyConditional = require("./simplifyConditional")
 
-local function space(count): luau.Trivia
-	return {
-		tag = "whitespace",
-		text = string.rep(" ", count),
-		location = {}, -- TODO
-	} :: any
-end
-
 local function simplifyBlock(block: luau.AstStatBlock, ctx: evaluate.EvaluateContext): luau.AstStatBlock
 	local statements = {}
 
@@ -52,29 +44,6 @@ local function simplifyBlock(block: luau.AstStatBlock, ctx: evaluate.EvaluateCon
 			end
 
 			table.insert(statements, statement)
-		elseif statement.tag == "assign" then
-			-- Simplify 'local x; x = ...'
-			-- TODO: this is broken
-			-- if #statements > 0 and #statement.variables == 1 and #statement.values == 1 then
-			-- 	local assigningTo = statement.variables[1].node
-			-- 	if assigningTo.tag == "local" then
-			-- 		local previousStatement = statements[#statements]
-			-- 		if
-			-- 			previousStatement.tag == "local"
-			-- 			and #previousStatement.variables == 1
-			-- 			and #previousStatement.values == 0
-			-- 			and previousStatement.variables[1].node.name.text == assigningTo.token.text
-			-- 		then
-			-- 			-- TODO: trivia preservation?
-			-- 			previousStatement.variables[1].node.name.trailingTrivia = { space(1) }
-			-- 			previousStatement.equals = statement.equals
-			-- 			table.insert(previousStatement.values, { node = statement.values[1].node })
-			-- 			continue
-			-- 		end
-			-- 	end
-			-- end
-
-			table.insert(statements, statement)
 		elseif statement.tag == "conditional" then
 			local simplified = simplifyConditional(statement, ctx)
 			if simplified == nil then
@@ -84,7 +53,30 @@ local function simplifyBlock(block: luau.AstStatBlock, ctx: evaluate.EvaluateCon
 				table.insert(statements, simplified)
 			elseif simplified.tag == "block" then
 				-- If processed down to a block, flatten with the main block
-				for _, otherStatement in simplified.statements do
+				for i, otherStatement in simplified.statements do
+					-- Simplify 'local x = value; x = ...' after the block was removed
+					if
+						i == 1
+						and otherStatement.tag == "assign"
+						and #statements > 0
+						and #otherStatement.variables == 1
+						and #otherStatement.values == 1
+					then
+						local assigningTo = otherStatement.variables[1].node
+						local previousStatement = statements[#statements]
+						if
+							assigningTo.tag == "local"
+							and previousStatement.tag == "local"
+							and #previousStatement.variables == 1
+							and previousStatement.variables[1].node.name.text == assigningTo.token.text
+						then
+							previousStatement.variables[1].node.name.trailingTrivia = assigningTo.token.trailingTrivia
+							previousStatement.equals = otherStatement.equals
+							previousStatement.values = otherStatement.values
+							continue
+						end
+					end
+
 					table.insert(statements, otherStatement)
 				end
 			else
