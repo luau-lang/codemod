@@ -1,0 +1,16 @@
+{
+  "name": "Test",
+  "className": "DataModel",
+  "children": [
+    {
+      "name": "SharedFlags",
+      "className": "ModuleScript",
+      "filePaths": ["input/SharedFlags.luau"]
+    },
+    {
+      "name": "Library",
+      "className": "ModuleScript",
+      "filePaths": ["input/Library.luau"]
+    }
+  ]
+}
