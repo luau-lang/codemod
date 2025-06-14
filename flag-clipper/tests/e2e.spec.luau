@@ -1,10 +1,18 @@
-local codemod = require("../").transform
+local fs = require("@lute/fs")
+
+local codemod = require("../")
+local files = require("../../lib/files")
+local path = require("../../lib/path")
 local types = require("../../lib/types")
 
 local function apply(source: string, flagName: string?, value: boolean?)
 	flagName = flagName or "FlagName"
 	value = if value == nil then true else value
-	return codemod({ path = "", source = source, options = { flag = flagName, value = value, sourcemap = "" } })
+	return codemod.transform({
+		path = "",
+		source = source,
+		options = { flag = flagName, value = value, sourcemap = "" },
+	})
 end
 
 local function test_markFlagModuleForDeletion()
@@ -166,8 +174,62 @@ local function test_compoundConditionWithUnary()
 	assert(apply(source, "FlagName", true) == expected)
 end
 
+local function test_snapshots()
+	local baseDirectory = "flag-clipper/tests/snapshots"
+
+	local function getOutputLocation(outputDirectory: string, filepath: string)
+		-- TODO: get proper output path using "relative" path apis
+		local relativePath = filepath:sub(filepath:find("/input/") :: number + string.len("/input/"))
+		return path.joinPath(outputDirectory, relativePath)
+	end
+
+	for _, test in fs.listdir(baseDirectory) do
+		assert(test.type == "dir")
+		print("Running", test.name)
+
+		local testDirectory = path.joinPath(baseDirectory, test.name)
+		local inputDirectory = path.joinPath(testDirectory, "input")
+		local outputDirectory = path.joinPath(testDirectory, "output")
+
+		local sources = files.getSourceFiles({ inputDirectory })
+
+		local options = {
+			flag = "FlagName",
+			value = true,
+			sourcemap = "",
+		}
+
+		local sourcemapPath = path.joinPath(testDirectory, "sourcemap.json")
+		local hasSourcemap = pcall(fs.readfiletostring, sourcemapPath)
+		if hasSourcemap then
+			options.sourcemap = sourcemapPath
+		end
+
+		codemod.initialize({ options = options })
+
+		for _, filepath in sources do
+			local source = fs.readfiletostring(filepath)
+			local ctx = {
+				path = filepath,
+				source = source,
+				options = options,
+			}
+			local result = codemod.transform(ctx)
+
+			local outputPath = getOutputLocation(outputDirectory, filepath)
+			local outputExists, expectedContents = pcall(fs.readfiletostring, outputPath)
+			if outputExists then
+				assert(result == expectedContents)
+			else
+				fs.writestringtofile(outputPath, result)
+			end
+		end
+	end
+end
+
 return function()
 	test_markFlagModuleForDeletion()
 	test_compoundCondition()
 	test_compoundConditionWithUnary()
+	test_snapshots()
 end

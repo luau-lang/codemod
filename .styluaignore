@@ -1,0 +1,2 @@
+# Don't format flag clipper snapshots output as the tests depend on this
+flag-clipper/tests/snapshots/**/output/
