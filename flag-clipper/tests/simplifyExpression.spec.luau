@@ -78,6 +78,13 @@ end
 -- 	assert(printSimplify(source) == expected)
 -- end
 
+local function test_removeKeyFromTable()
+	local source = "{ FFlagFlagName = game:GetFastFlag('FlagName') }"
+	local expected = "{ }"
+
+	assert(printSimplify(source) == expected)
+end
+
 return function()
 	test_simplifyBinary()
 	-- test_simplifyUnary()
@@ -87,4 +94,5 @@ return function()
 	-- test_simplifyIfExprRemoveIfKeepElseif()
 	-- test_simplifyIfIntoElseif()
 	-- test_simplifyIfAndElseIf()
+	test_removeKeyFromTable()
 end

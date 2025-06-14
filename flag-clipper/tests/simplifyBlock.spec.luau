@@ -54,23 +54,6 @@ local function test_preservesUnrelatedCalls()
 	assert(apply(source, "FlagName") == source)
 end
 
-local function test_simplifyVariableAssignment()
-	local source = [[
-		local x
-		x = function()
-			return true
-		end
-	]]
-
-	local expected = [[
-		local x = function()
-			return true
-		end
-	]]
-
-	assert(apply(source) == expected)
-end
-
 local function test_simplifyIfStatementRemoveElse()
 	local source = [[
 		if game:GetFastFlag("FlagName") then
@@ -220,8 +203,6 @@ return function()
 	test_removeDefinition()
 	test_removeGetterCall()
 	test_preservesUnrelatedCalls()
-	-- TODO:
-	-- test_simplifyVariableAssignment()
 	test_simplifyIfStatementRemoveElse()
 	test_simplifyIfStatementRemoveIf()
 	test_keepComplicatedIf()

@@ -1,5 +1,5 @@
 local codemod = require("../").transform
-local types = require("../../types")
+local types = require("../../lib/types")
 
 local function apply(source: string, flagName: string?, value: boolean?)
 	flagName = flagName or "FlagName"
