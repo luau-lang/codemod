@@ -221,6 +221,11 @@ local function test_snapshots()
 			if outputExists then
 				assert(result == expectedContents)
 			else
+				local hasOutputDirectory = pcall(fs.type, outputDirectory)
+				if not hasOutputDirectory then
+					fs.mkdir(outputDirectory)
+				end
+
 				fs.writestringtofile(outputPath, result)
 			end
 		end
