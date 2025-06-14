@@ -1,68 +1,11 @@
 local fs = require("@lute/fs")
-local process = require("@lute/process")
 
 local arguments = require("./lib/arguments")
-local ignore = require("./lib/ignore")
-local path = require("./lib/path")
-local strings = require("./lib/strings")
+local files = require("./lib/files")
 local types = require("./lib/types")
 
 local function exhaustiveMatch(value: never): never
 	error(`Unknown value in exhaustive match: {value}`)
-end
-
-local function extend<T>(tbl: { T }, other: { T })
-	for _, entry in other do
-		table.insert(tbl, entry)
-	end
-end
-
-local function traverseDirectoryRecursive(directory: string, ignoreResolver: ignore.IgnoreResolver): { string }
-	local results = {}
-
-	for _, entry in fs.listdir(directory) do
-		local fullPath = path.joinPath(directory, entry.name)
-
-		if entry.type == "dir" then
-			if ignoreResolver:isIgnoredDirectory(fullPath) then
-				print("Skipping", fullPath)
-				continue
-			end
-
-			extend(results, traverseDirectoryRecursive(fullPath, ignoreResolver))
-		else
-			-- TODO: allow customisation of the filter when traversing a directory. e.g., globs? file endings? ignore paths?
-			if strings.endsWith(entry.name, ".luau") or strings.endsWith(entry.name, ".lua") then
-				if ignoreResolver:isIgnoredFile(fullPath) then
-					print("Skipping", fullPath)
-					continue
-				end
-				table.insert(results, fullPath)
-			end
-		end
-	end
-
-	return results
-end
-
-local function getSourceFiles(paths: { string }): { string }
-	local files = {}
-
-	local ignoreResolver = ignore.new()
-
-	for _, filepath in paths do
-		if not path.isAbsolute(filepath) then
-			filepath = path.joinPath(process.cwd(), filepath)
-		end
-
-		if fs.type(filepath) == "dir" then
-			extend(files, traverseDirectoryRecursive(filepath, ignoreResolver))
-		else
-			table.insert(files, filepath)
-		end
-	end
-
-	return files
 end
 
 local function loadMigration(path: string): types.Migration
@@ -193,7 +136,7 @@ local function main(...: string)
 	local migration = loadMigration(args.migrationPath)
 
 	print("Finding source files")
-	local files = getSourceFiles(args.filePaths)
+	local files = files.getSourceFiles(args.filePaths)
 	if #files == 0 then
 		error("error: no source files provided")
 	end
