@@ -34,3 +34,18 @@ jobs:
           lute flag-clipper/tests/runner.luau
           lute require-resolver/tests/isRequire.spec.luau
           lute require-resolver/tests/resolver_tracer.spec.luau
+
+  check-format:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        uses: Roblox/setup-foreman@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          allow-external-github-orgs: true
+
+      - name: Run StyLua
+        run: stylua --check .
