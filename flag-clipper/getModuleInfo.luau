@@ -22,6 +22,7 @@ local FlagModuleFileCache: { [string]: ModuleInfo } = {}
 -- TODO: duplicated from TrackReferences.luau
 type TableData = {
 	flagProperties: { string },
+	nestedTableData: { [string]: TableData },
 }
 
 local function resolveRotrieverPackageLink(
@@ -99,7 +100,7 @@ local function getModuleTableInfo(
 		return nil
 	end
 
-	local tableData = { flagProperties = {} }
+	local tableData = { flagProperties = {}, nestedTableData = {} }
 
 	for _, entry in expression.entries do
 		if entry.kind == "record" then
@@ -109,8 +110,12 @@ local function getModuleTableInfo(
 				table.insert(tableData.flagProperties, entry.key.text)
 			elseif isRequire(entry.value) then
 				local moduleInfo = getModuleInfo(entry.value, flagName, requireInfo, sourcemapData)
-				if moduleInfo and moduleInfo.isFlagModule then
-					table.insert(tableData.flagProperties, entry.key.text)
+				if moduleInfo then
+					if moduleInfo.isFlagModule then
+						table.insert(tableData.flagProperties, entry.key.text)
+					elseif moduleInfo.tableData then
+						tableData.nestedTableData[entry.key.text] = moduleInfo.tableData
+					end
 				end
 			end
 		end

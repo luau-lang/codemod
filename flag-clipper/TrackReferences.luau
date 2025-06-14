@@ -14,8 +14,23 @@ local getModuleInfo = require("./getModuleInfo")
 local TrackReferences = {}
 TrackReferences.__index = TrackReferences
 
+--- Information about a table that is relevant for flag clipping
 type TableData = {
+	--- A list of properties that correspond to the flag that is being cleaned up
 	flagProperties: { string },
+	--[[
+		A map of properties to other TableData, for nested table cases.
+		For example:
+		```luau
+			local tbl = {
+				other = {
+					flagValue = game:GetFastFlag("FlagName")
+				}
+			}
+		```
+		In this case, the TableData for `tbl` would contain nested table data of `{ "other" = { flagProperties = { "flagValue" } }}`
+	]]
+	nestedTableData: { [string]: TableData },
 }
 
 type TrackReferencesData = {
@@ -28,10 +43,10 @@ type TrackReferencesData = {
 	--- A set of global function names that are known to correspond to a flag access
 	--- Unlike flagLocalsSet, we do not track this via AstLocal reference, but just by the function name
 	_globalNames: { [string]: true },
-	--- Stores local variables that correspond to tables, and the relevant properties inside of that table that
-	--- correspond to a flag
-	_tableData: { [luau.AstLocal]: TableData },
-	_externalTableData: { [luau.AstExpr]: TableData },
+	--- Stores local variables that correspond to tables
+	_localTableData: { [luau.AstLocal]: TableData },
+	--- Stores expressions that correspond to tables, either directly or indirectly.
+	_expressionTableData: { [luau.AstExpr]: TableData },
 	_visitor: visitor.Visitor,
 }
 
@@ -46,8 +61,8 @@ function TrackReferences.new(
 	self._locals = {}
 	self._expressions = {}
 	self._globalNames = {}
-	self._tableData = {}
-	self._externalTableData = {}
+	self._localTableData = {}
+	self._expressionTableData = {}
 	self._visitor = visitor.createVisitor()
 
 	self._visitor.visitExpression = function(node: luau.AstExpr)
@@ -61,12 +76,15 @@ function TrackReferences.new(
 				if moduleInfo.isFlagModule then
 					self._expressions[node] = true
 				elseif moduleInfo.tableData then
-					self._externalTableData[node] = moduleInfo.tableData
+					self._expressionTableData[node] = moduleInfo.tableData
 				end
 			end
 		elseif node.tag == "local" then
 			if self._locals[node["local"]] then
 				self._expressions[node] = true
+			end
+			if self._localTableData[node["local"]] then
+				self._expressionTableData[node] = self._localTableData[node["local"]]
 			end
 		elseif node.tag == "global" then
 			if self._globalNames[node.name.text] then
@@ -83,13 +101,29 @@ function TrackReferences.new(
 				self._expressions[node] = true
 			end
 		elseif node.tag == "indexname" then
-			local tableData = if node.expression.tag == "local"
-				then self._tableData[node.expression["local"]]
-				else self._externalTableData[node.expression]
+			local tableData = self._expressionTableData[node.expression]
 
-			if tableData and table.find(tableData.flagProperties, node.index.text) then
-				self._expressions[node] = true
+			if tableData then
+				if table.find(tableData.flagProperties, node.index.text) then
+					self._expressions[node] = true
+				elseif tableData.nestedTableData[node.index.text] then
+					self._expressionTableData[node] = tableData.nestedTableData[node.index.text]
+				end
 			end
+		elseif node.tag == "table" then
+			local tableData = { flagProperties = {}, nestedTableData = {} }
+
+			for _, entry in node.entries do
+				if entry.kind == "record" then
+					if self._expressions[entry.value] then
+						table.insert(tableData.flagProperties, entry.key.text)
+					elseif self._expressionTableData[entry.value] then
+						tableData.nestedTableData[entry.key.text] = self._expressionTableData[entry.value]
+					end
+				end
+			end
+
+			self._expressionTableData[node] = tableData
 		end
 	end
 
@@ -104,20 +138,8 @@ function TrackReferences.new(
 				self._locals[variable.node] = true
 			end
 
-			if value.tag == "table" then
-				local tableData = { flagProperties = {} }
-
-				for _, entry in value.entries do
-					if entry.kind == "record" then
-						if self._expressions[entry.value] then
-							table.insert(tableData.flagProperties, entry.key.text)
-						end
-					end
-				end
-
-				self._tableData[variable.node] = tableData
-			elseif self._externalTableData[value] then
-				self._tableData[variable.node] = self._externalTableData[value]
+			if self._expressionTableData[value] then
+				self._localTableData[variable.node] = self._expressionTableData[value]
 			end
 		end
 	end

@@ -199,6 +199,30 @@ local function test_flagAccessViaTableFunctionCall()
 	assert(references:isReference(call.expression) == true)
 end
 
+local function test_flagAccessViaNestedTables()
+	local block = parser.parse([[
+		local tbl = {
+			other = {
+				flagValue = game:GetFastFlag("FlagName")
+			}
+		}
+		print(tbl.other.flagValue)
+	]])
+	assert(#block.statements == 2)
+
+	local call = block.statements[2]
+	assert(call.tag == "expression")
+	assert(call.expression.tag == "call")
+	assert(#call.expression.arguments == 1)
+
+	local expression = call.expression.arguments[1].node
+	assert(expression.tag == "indexname")
+
+	local references = TrackReferences.new("FlagName", {})
+	references:visit(block)
+	assert(references:isReference(expression) == true)
+end
+
 return function()
 	test_directFlagAccess()
 	test_flagAccessViaLocalVariable()
@@ -210,4 +234,5 @@ return function()
 	test_flagAccessViaTableIndex()
 	test_ignoreUnknownTableReference()
 	test_flagAccessViaTableFunctionCall()
+	test_flagAccessViaNestedTables()
 end
