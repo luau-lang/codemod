@@ -55,7 +55,8 @@ export type TrackReferences = setmetatable<TrackReferencesData, typeof(TrackRefe
 function TrackReferences.new(
 	flagName: string,
 	requireInfo: requireTracer.RequireTracerResult,
-	sourcemapData: sourcemap.SourcemapData?
+	sourcemapData: sourcemap.SourcemapData?,
+	repo: string?
 ): TrackReferences
 	local self = {}
 	self._locals = {}
@@ -66,12 +67,12 @@ function TrackReferences.new(
 	self._visitor = visitor.createVisitor()
 
 	self._visitor.visitExpression = function(node: luau.AstExpr)
-		if isFlagAccess(node, flagName) then
+		if isFlagAccess(node, flagName, repo) then
 			self._expressions[node] = true
-		elseif isFlagFunction.isExprFlagFunction(node, flagName) then
+		elseif isFlagFunction.isExprFlagFunction(node, flagName, repo) then
 			self._expressions[node] = true
 		elseif isRequire(node) then
-			local moduleInfo = getModuleInfo(node, flagName, requireInfo, sourcemapData)
+			local moduleInfo = getModuleInfo(node, flagName, requireInfo, sourcemapData, repo)
 			if moduleInfo then
 				if moduleInfo.isFlagModule then
 					self._expressions[node] = true
@@ -145,14 +146,14 @@ function TrackReferences.new(
 	end
 
 	self._visitor.visitLocalFunction = function(node: luau.AstStatLocalFunction)
-		if isFlagFunction.isStmtFlagFunction(node, flagName) then
+		if isFlagFunction.isStmtFlagFunction(node, flagName, repo) then
 			self._locals[node.name] = true
 		end
 		return true
 	end
 
 	self._visitor.visitFunction = function(node: luau.AstStatFunction)
-		if isFlagFunction.isStmtFlagFunction(node, flagName) then
+		if isFlagFunction.isStmtFlagFunction(node, flagName, repo) then
 			if node.name.tag == "local" then
 				self._locals[node.name["local"]] = true
 			elseif node.name.tag == "global" then

@@ -29,7 +29,8 @@ local function resolveRotrieverPackageLink(
 	body: luau.AstStatBlock,
 	flagName: string,
 	requireInfo: requireTracer.RequireTracerResult,
-	sourcemapData: sourcemap.SourcemapData?
+	sourcemapData: sourcemap.SourcemapData?,
+	repo: string?
 ): ModuleInfo?
 	-- Follow through rotriever package links
 	-- For now, we hardcode the detection and resolution specifically for these links.
@@ -73,14 +74,15 @@ local function resolveRotrieverPackageLink(
 		return nil
 	end
 
-	return getModuleInfo(linkedPackageCall, flagName, requireInfo, sourcemapData)
+	return getModuleInfo(linkedPackageCall, flagName, requireInfo, sourcemapData, repo)
 end
 
 local function getModuleTableInfo(
 	body: luau.AstStatBlock,
 	flagName: string,
 	requireInfo: requireTracer.RequireTracerResult,
-	sourcemapData: sourcemap.SourcemapData?
+	sourcemapData: sourcemap.SourcemapData?,
+	repo: string?
 ): TableData?
 	if #body.statements == 0 then
 		return nil
@@ -104,12 +106,12 @@ local function getModuleTableInfo(
 
 	for _, entry in expression.entries do
 		if entry.kind == "record" then
-			if isFlagFunction.isExprFlagFunction(entry.value, flagName) then
+			if isFlagFunction.isExprFlagFunction(entry.value, flagName, repo) then
 				table.insert(tableData.flagProperties, entry.key.text)
-			elseif isFlagAccess(entry.value, flagName) then
+			elseif isFlagAccess(entry.value, flagName, repo) then
 				table.insert(tableData.flagProperties, entry.key.text)
 			elseif isRequire(entry.value) then
-				local moduleInfo = getModuleInfo(entry.value, flagName, requireInfo, sourcemapData)
+				local moduleInfo = getModuleInfo(entry.value, flagName, requireInfo, sourcemapData, repo)
 				if moduleInfo then
 					if moduleInfo.isFlagModule then
 						table.insert(tableData.flagProperties, entry.key.text)
@@ -128,7 +130,8 @@ function getModuleInfo(
 	expression: luau.AstExpr,
 	flagName: string,
 	requireInfo: requireTracer.RequireTracerResult,
-	sourcemapData: sourcemap.SourcemapData?
+	sourcemapData: sourcemap.SourcemapData?,
+	repo: string?
 ): ModuleInfo?
 	if not isRequire(expression) then
 		return nil
@@ -160,16 +163,16 @@ function getModuleInfo(
 	assert(block)
 
 	local result: ModuleInfo = { isFlagModule = false, tableData = nil }
-	if isFlagModule(block, flagName) then
+	if isFlagModule(block, flagName, repo) then
 		result.isFlagModule = true
 	else
 		requireInfo = requireTracer.traceRequires(block, requirePath, fileResolver.createFileResolver(sourcemapData))
 
-		local packageLink = resolveRotrieverPackageLink(block, flagName, requireInfo, sourcemapData)
+		local packageLink = resolveRotrieverPackageLink(block, flagName, requireInfo, sourcemapData, repo)
 		if packageLink then
 			result = packageLink
 		else
-			local tableData = getModuleTableInfo(block, flagName, requireInfo, sourcemapData)
+			local tableData = getModuleTableInfo(block, flagName, requireInfo, sourcemapData, repo)
 			if tableData then
 				result.tableData = tableData
 			end

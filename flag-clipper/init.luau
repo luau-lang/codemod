@@ -41,6 +41,9 @@ type Options = {
 	--- Path to a sourcemap file to resolve virtual requires.
 	--- If not provided, defaults to an empty string
 	sourcemap: string,
+	--- Repository type for flag pattern matching.
+	--- Supported values: "Foundation", "LuaApps", "UIBlox", ...
+	repo: string,
 }
 
 local function initialize(ctx: codemod.InitializationContext<Options>)
@@ -58,11 +61,11 @@ local function transform(ctx: codemod.Context<Options>)
 	local block = result.root
 
 	local requireInfo = requireTracer.traceRequires(block, ctx.path, fileResolver.createFileResolver(SourcemapData))
-	local references = TrackReferences.new(ctx.options.flag, requireInfo, SourcemapData)
+	local references = TrackReferences.new(ctx.options.flag, requireInfo, SourcemapData, ctx.options.repo)
 	references:visit(block)
 
 	-- Early check: if is a flag module, mark for deletion
-	if isFlagModule(block, ctx.options.flag) then
+	if isFlagModule(block, ctx.options.flag, ctx.options.repo) then
 		return codemod.DELETION_MARKER
 	end
 
@@ -96,6 +99,7 @@ return {
 		{ name = "flag", kind = "string" },
 		{ name = "value", kind = "boolean", default = true },
 		{ name = "sourcemap", kind = "string", default = "" },
+		{ name = "repo", kind = "string", default = "LuaApps" },
 	},
 	initialize = initialize,
 	transform = transform,

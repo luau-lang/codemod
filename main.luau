@@ -126,6 +126,9 @@ local function applyMigration(
 end
 
 local function main(...: string)
+	local startTime = os.clock()
+	print("Starting main")
+
 	local args = arguments.parse({ ... })
 
 	if args.dryRun then
@@ -148,6 +151,7 @@ local function main(...: string)
 	applyMigration(migration, files, migrationOptions, args.dryRun)
 
 	print(`Processed {#files} files!`)
+	print("Time taken: " .. os.clock() - startTime .. " seconds")
 end
 
 main(...)
