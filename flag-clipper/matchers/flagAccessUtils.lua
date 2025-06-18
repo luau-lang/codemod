@@ -49,11 +49,13 @@ local function isUIBloxFlagAccess(expr: luau.AstExpr, flagName: string): boolean
 	return false
 end
 
-local function isSafeFlagsLocal(expression: luau.AstExpr)
-	if expression.tag ~= "local" then
+local function isSafeFlags(expression: luau.AstExpr)
+	if expression.tag ~= "local" and expression.tag ~= "global" then
 		return false
 	end
-
+	if expression.tag == "global" then
+		return expression.name.text == "SafeFlags"
+	end
 	return typeof(expression.token.text) == "string" and expression.token.text == "SafeFlags"
 	-- -- can also do:
 	-- return typeof(expression["local"].name.text) == "string" and expression["local"].name.text == "SafeFlags"
@@ -64,7 +66,7 @@ local function isCreateGetFFlagCall(expression: luau.AstExpr)
 		return false
 	end
 
-	return isSafeFlagsLocal(expression.expression) and expression.index.text == "createGetFFlag"
+	return isSafeFlags(expression.expression) and expression.index.text == "createGetFFlag"
 end
 
 local function isFoundationFlagAccess(expression: luau.AstExpr, flagName: string)

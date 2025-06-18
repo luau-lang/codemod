@@ -19,8 +19,21 @@ local function test_doesNotMatchAccessWithDifferentName()
 	assert(isFlagAccess(expr, "FlagName") == false)
 end
 
+local function test_matchesUIBloxFlagAccess()
+	local expr = parser.parseexpr("UIBloxConfig.FlagName")
+
+	assert(isFlagAccess(expr, "FlagName", "UIBlox") == true)
+end
+
+local function test_matchesFoundationFlagAccess()
+	local expr = parser.parseexpr('SafeFlags.createGetFFlag("FlagName")()')
+	assert(isFlagAccess(expr, "FlagName", "Foundation") == true)
+end
+
 return function()
 	test_matchesDefineFastFlag()
 	test_matchesGetFastFlag()
 	test_doesNotMatchAccessWithDifferentName()
+	test_matchesUIBloxFlagAccess()
+	test_matchesFoundationFlagAccess()
 end
