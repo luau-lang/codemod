@@ -254,6 +254,32 @@ local testCases = {
 		["local_to_outer_2"] = 1,
 		["inner_func_3"] = 1,
 	},
+
+	-- Global function declaration
+	[ [[
+        function n()
+            print(1)
+        end
+        n()
+    ]] ] = {
+		["n_0"] = 1,
+	},
+
+	-- Passing declared variables to functions
+	[ [[
+        local s = "test"
+        function abc(var: string)
+            return var
+        end
+        local function cba(var: string)
+            print(var)
+        end
+        cba(abc(s))
+    ]] ] = {
+		["s_0"] = 1,
+		["abc_1"] = 1,
+		["cba_4"] = 1,
+	},
 }
 
 return testCases

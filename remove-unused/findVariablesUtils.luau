@@ -11,6 +11,10 @@ export type variableStore = {
 	[luau.AstExpr]: number,
 }
 
+export type globalStore = {
+	[string]: luau.AstExpr,
+}
+
 local function excludeVarName(varName: string): boolean
 	-- Skip underscore-prefixed (intentionally unused)
 	if varName:sub(1, 1) == "_" then
@@ -37,11 +41,7 @@ local function handleAssign(assignedVars, variables: variableStore)
 	if assignedVars then
 		for _, v in assignedVars do
 			if v.node then
-				if not variables[v.node["local"]] then
-					printTable(v, 1)
-				else
-					variables[v.node["local"]] -= 1
-				end
+				variables[v.node["local"]] -= 1
 			end
 		end
 	end
@@ -50,8 +50,6 @@ end
 local function handleVarReference(node: luau.AstStatLocal, variables: variableStore)
 	if variables[node["local"]] then
 		variables[node["local"]] += 1
-	else
-		print("reference to untracked var:", node["local"].name.text) -- this will prompt for function params, for ... vars, etc
 	end
 end
 
@@ -77,6 +75,7 @@ end
 -- function that traverses the block, finds variable declarations/references, and populates a deletions table for that block
 local function findVariables(block: luau.AstStatBlock)
 	local deletions = {}
+	local globals: globalStore = {}
 	local variables: variableStore = {} -- stores varReference : useCount for use in deletion
 	local scopeStack: { scope } = {} -- stack-esque table that stores varName : varReference at each level of scope
 
@@ -108,12 +107,36 @@ local function findVariables(block: luau.AstStatBlock)
 		return true
 	end
 
+	getVarsVisitor.visitFunction = function(expression: luau.AstStatLocalFunction)
+		if expression.name.name then
+			globals[expression.name.name.text] = expression.name
+			variables[expression.name] = 0
+			-- scopeStack[#scopeStack][expression.name.name.text] = expression.name
+			-- dont think we need to add to scope stack bc how cud type reference (only thing that searches scope stack) prefix match w a global function...?
+		end
+		return true
+	end
+
 	-- ============ REFERENCES: local references, type references, ... (what else hmmm) ============
 	getVarsVisitor.visitLocalReference = function(expression: luau.AstExprLocal)
 		-- only can care abt expression['local']
 		-- these expressions store the original variable reference in local (local.name has text and position)
 		-- we can use to match w/ declaration
 		handleVarReference(expression, variables)
+		return true
+	end
+
+	-- handle's global function references
+	getVarsVisitor.visitExpression = function(expression: luau.AstExprGlobal)
+		if expression.tag == "call" then
+			if expression.func.tag == "global" then -- only care abt global functions here so we don't double cnt local functions (they get caught by visitLocalReference)
+				local globalFuncName = expression.func.name.text
+				local globalFuncReference = globals[globalFuncName]
+				if globalFuncReference then -- only count tracked global funcs (don't care abt stuff like print (built in funcs) etc)
+					variables[globalFuncReference] += 1
+				end
+			end
+		end
 		return true
 	end
 
