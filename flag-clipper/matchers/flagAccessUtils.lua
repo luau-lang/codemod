@@ -44,8 +44,6 @@ end
 
 local function isFoundationFlagAccess(expression: luau.AstExpr, flagName: string)
 	-- Handle direct flag calls: SafeFlags.createGetFFlag("flagName")()
-	-- notice how Foundation flags call one layer deeper/more nested
-	-- than the flag access currently expected by this module (game:DefineFastFlag/GetFastFlag())
 	if expression.tag == "call" then
 		if expression.func.tag == "call" then
 			return isCreateGetFFlagCall(expression.func.func)
