@@ -280,6 +280,55 @@ local testCases = {
 		["abc_1"] = 1,
 		["cba_4"] = 1,
 	},
+
+
+    -- Referencing global functions (non-call) and referencing vars as table keys
+    [ [[
+        local x = 1
+        local function a()
+            return 2
+        end
+        function b()
+            return 4
+        end
+        return {
+            ['m'] = a(),
+            ['b'] = x,
+            ['c'] = a,
+            ['d'] = b,
+        }
+    ]] ] = {
+        ['x_0'] = 1,
+        ['a_1'] = 2,
+        ['b_4'] = 1,
+    }
+
+	--[[
+        the only part of findVariables that uses the scopeStack is the visitTypeReference
+        this would be a case where we have something like:
+
+            local m = 1
+            local function x()
+                local m = require("../test")
+                local n: m.testType = { "l" = 1 } 
+            end
+
+        in this case, we want m_2 (defined on line 2) to have 1 use, while m_0 should have 0
+        hmmm how can i get requires to work in these test cases....
+    ]]
+
+	--[[ 
+        the following is an edge case I'm not yet sure how to handle:
+        local types = require(...)
+        local function func()
+	        local types = 1
+	        local h: types.testType = { ['a'] = 1 } -- refers to types on line 0, but current implementation will count it as use for types on the line just above
+        end
+        hmmmm, this is tricky bc outside of these type sort of cases (using var with same name in nested scope as an outer-scope var that exports type), the interpreter will use the nearest in scope var for logic
+        can save as a challenge for later
+    ]]
+
+	-- To-Do: remove redundant test cases
 }
 
 return testCases

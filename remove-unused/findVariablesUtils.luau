@@ -11,7 +11,11 @@ export type variableStore = {
 	[luau.AstExpr]: number,
 }
 
-export type globalStore = {
+export type deletionStore = {
+	[luau.AstExpr]: number,
+}
+
+export type globalStore = { -- map global func name to AST node
 	[string]: luau.AstExpr,
 }
 
@@ -41,7 +45,9 @@ local function handleAssign(assignedVars, variables: variableStore)
 	if assignedVars then
 		for _, v in assignedVars do
 			if v.node then
-				variables[v.node["local"]] -= 1
+				if variables[v.node["local"]] then
+					variables[v.node["local"]] -= 1
+				end
 			end
 		end
 	end
@@ -63,7 +69,6 @@ local function searchScopeStack(scopeStack: { scope }, varName: string, variable
 			print(" " .. k)
 		end
 		if scopeStack[curScope][varName] then
-			-- increment var
 			local varReference = scopeStack[curScope][varName]
 			variables[varReference] += 1
 			break
@@ -74,7 +79,7 @@ end
 
 -- function that traverses the block, finds variable declarations/references, and populates a deletions table for that block
 local function findVariables(block: luau.AstStatBlock)
-	local deletions = {}
+	local deletions: deletionStore = {}
 	local globals: globalStore = {}
 	local variables: variableStore = {} -- stores varReference : useCount for use in deletion
 	local scopeStack: { scope } = {} -- stack-esque table that stores varName : varReference at each level of scope
@@ -107,11 +112,11 @@ local function findVariables(block: luau.AstStatBlock)
 		return true
 	end
 
+	-- handle global function definitions
 	getVarsVisitor.visitFunction = function(expression: luau.AstStatLocalFunction)
 		if expression.name.name then
 			globals[expression.name.name.text] = expression.name
 			variables[expression.name] = 0
-			-- scopeStack[#scopeStack][expression.name.name.text] = expression.name
 			-- dont think we need to add to scope stack bc how cud type reference (only thing that searches scope stack) prefix match w a global function...?
 		end
 		return true
@@ -126,16 +131,19 @@ local function findVariables(block: luau.AstStatBlock)
 		return true
 	end
 
-	-- handle's global function references
+	-- handle's global function calls and references
 	getVarsVisitor.visitExpression = function(expression: luau.AstExprGlobal)
-		if expression.tag == "call" then
-			if expression.func.tag == "global" then -- only care abt global functions here so we don't double cnt local functions (they get caught by visitLocalReference)
-				local globalFuncName = expression.func.name.text
-				local globalFuncReference = globals[globalFuncName]
-				if globalFuncReference then -- only count tracked global funcs (don't care abt stuff like print (built in funcs) etc)
-					variables[globalFuncReference] += 1
-				end
-			end
+		local globalFuncName
+		if expression.tag == "global" and globals[expression.name.text] then -- this procs for function definition, call, and non-call ref so need to avoid double counting
+			-- maybe can check if on same line as globalFuncReference (reference to definition...) to avoid double cnt
+			globalFuncName = expression.name.text
+		else
+			return true
+		end
+		local globalFuncReference = globals[globalFuncName]
+		local isDoubleReference = expression.tag == "global" and expression.name.position.line == globalFuncReference.name.position.line
+		if globalFuncReference and not isDoubleReference then -- only count tracked global funcs (don't care abt stuff like print (built in funcs) etc)
+			variables[globalFuncReference] += 1
 		end
 		return true
 	end
@@ -162,16 +170,20 @@ local function findVariables(block: luau.AstStatBlock)
 	end
 
 	visitor.visitBlock(block, getVarsVisitor)
+
 	print("Variables:")
 	printTable(variables, 1, true)
+	local numDeletions = 0
 	for var, refs in variables do
 		if refs < 1 then
-			table.insert(deletions, var)
+			-- table.insert(deletions, var)
+			deletions[var] = true
+			numDeletions += 1
 		end
 	end
 	print("Deletions:")
 	printTable(deletions, 1, true)
-	return variables, deletions
+	return variables, deletions, numDeletions
 end
 
 return {
