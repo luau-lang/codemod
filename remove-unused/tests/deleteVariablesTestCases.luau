@@ -175,9 +175,9 @@ local testCases = {
 
     local _, _result = pcall(process, 123) -- _ is ignored
     ]],
-	
-    -- Referencing declared vars as tables values
-    [ [[
+
+	-- Referencing declared vars as tables values
+	[ [[
         local x = 1
         local function a()
             return 2
@@ -187,8 +187,7 @@ local testCases = {
             ['b'] = x,
             ['c'] = a,
         }
-    ]] ] = 
-    [[
+    ]] ] = [[
         local x = 1
         local function a()
             return 2
@@ -200,8 +199,8 @@ local testCases = {
         }
     ]],
 
-    -- Vars whose only use is in an unused var (multiple pass removal)
-    [ [[
+	-- Vars whose only use is in an unused var (multiple pass removal)
+	[ [[
         local x = 1
         local a = x
         function b()
@@ -210,7 +209,7 @@ local testCases = {
         local c = b()
     ]] ] = [[
 
-    ]] -- should all be removed
+    ]], -- should all be removed
 }
 
 return testCases

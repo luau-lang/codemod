@@ -141,7 +141,7 @@ local function deleteVariables(block: luau.AstStatBlock, deletions: deletionStor
 			end
 			table.insert(filteredStatements, statement)
 		end
-		
+
 		block.statements = filteredStatements
 	end
 

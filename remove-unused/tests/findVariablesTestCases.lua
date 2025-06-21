@@ -281,9 +281,8 @@ local testCases = {
 		["cba_4"] = 1,
 	},
 
-
-    -- Referencing global functions (non-call) and referencing vars as table keys
-    [ [[
+	-- Referencing global functions (non-call) and referencing vars as table keys
+	[ [[
         local x = 1
         local function a()
             return 2
@@ -298,10 +297,10 @@ local testCases = {
             ['d'] = b,
         }
     ]] ] = {
-        ['x_0'] = 1,
-        ['a_1'] = 2,
-        ['b_4'] = 1,
-    }
+		["x_0"] = 1,
+		["a_1"] = 2,
+		["b_4"] = 1,
+	},
 
 	--[[
         the only part of findVariables that uses the scopeStack is the visitTypeReference

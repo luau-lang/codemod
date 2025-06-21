@@ -22,12 +22,12 @@ end
 local function test_matchesUIBloxFlagAccess()
 	local expr = parser.parseexpr("UIBloxConfig.FlagName")
 
-	assert(isFlagAccess(expr, "FlagName", "UIBlox") == true)
+	assert(isFlagAccess(expr, "FlagName") == true)
 end
 
 local function test_matchesFoundationFlagAccess()
 	local expr = parser.parseexpr('SafeFlags.createGetFFlag("FlagName")()')
-	assert(isFlagAccess(expr, "FlagName", "Foundation") == true)
+	assert(isFlagAccess(expr, "FlagName") == true)
 end
 
 return function()

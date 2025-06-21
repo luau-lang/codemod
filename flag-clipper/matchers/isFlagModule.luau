@@ -9,12 +9,7 @@ type FlagModuleKind =
 	| "constant" -- Module returned game:DefineFastFlag() / game:GetFastFlag() directly
 	| "function" -- Module returned a function that retrieves the FFlag value
 
-local function isFlagReference(
-	body: luau.AstStatBlock,
-	variable: luau.AstLocal,
-	flagName: string,
-	repo: string?
-): boolean
+local function isFlagReference(body: luau.AstStatBlock, variable: luau.AstLocal, flagName: string): boolean
 	-- TODO: re-use the TrackReferences set up
 	-- Right now, it has a circular dependency
 
@@ -26,8 +21,7 @@ local function isFlagReference(
 			if var.node == variable then
 				if #node.values >= i then
 					local expr = node.values[i].node
-					result = isFlagAccess(expr, flagName, repo)
-						or isFlagFunction.isExprFlagFunction(expr, flagName, repo)
+					result = isFlagAccess(expr, flagName) or isFlagFunction.isExprFlagFunction(expr, flagName)
 				end
 				return false
 			end
@@ -37,7 +31,7 @@ local function isFlagReference(
 
 	trackLocalsVisitor.visitLocalFunction = function(node: luau.AstStatLocalFunction)
 		if node.name == variable then
-			result = isFlagFunction.isStmtFlagFunction(node, flagName, repo)
+			result = isFlagFunction.isStmtFlagFunction(node, flagName)
 			return false
 		end
 
@@ -49,7 +43,7 @@ local function isFlagReference(
 	return result
 end
 
-local function isFlagModule(body: luau.AstStatBlock, flagName: string, repo: string?): (boolean, FlagModuleKind)
+local function isFlagModule(body: luau.AstStatBlock, flagName: string): (boolean, FlagModuleKind)
 	if #body.statements == 0 then
 		return false :: any
 	end
@@ -65,12 +59,12 @@ local function isFlagModule(body: luau.AstStatBlock, flagName: string, repo: str
 
 	local expression = lastStmt.expressions[1].node
 
-	if isFlagFunction.isExprFlagFunction(expression, flagName, repo) then
+	if isFlagFunction.isExprFlagFunction(expression, flagName) then
 		return true, "function"
-	elseif isFlagAccess(expression, flagName, repo) then
+	elseif isFlagAccess(expression, flagName) then
 		return true, "constant"
 	elseif expression.tag == "local" then
-		return isFlagReference(body, expression["local"], flagName, repo), "function"
+		return isFlagReference(body, expression["local"], flagName), "function"
 	else
 		return false :: any
 	end

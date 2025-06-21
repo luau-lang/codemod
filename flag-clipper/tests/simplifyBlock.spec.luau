@@ -11,11 +11,11 @@ local repoToFlagName: { [string]: string } = {
 	["UIBlox"] = "UIBloxConfig.FlagName",
 }
 
-local function apply(source: string, flagName: string?, flagValue: boolean?, repo: string?)
+local function apply(source: string, flagName: string?, flagValue: boolean?)
 	flagName = flagName or "FlagName"
 	flagValue = if flagValue ~= nil then flagValue else true
 
-	local references = TrackReferences.new(flagName or "FlagName", {}, nil, repo)
+	local references = TrackReferences.new(flagName or "FlagName", {}, nil)
 
 	local context: evaluate.EvaluateContext = {
 		flagName = flagName,
@@ -205,7 +205,7 @@ local function test_simplifyAssignmentWhenInitiallyAssignedToAValueAfterBlockCol
 	assert(apply(source, "FlagName", true) == expected)
 end
 
-local function test_simplifyReassignmentAssignment(repo: string)
+local function test_simplifyReassignment(repo: string)
 	local source = [[local FlagName = ]] .. repoToFlagName[repo] .. [[
 
 		FlagName = true
@@ -213,7 +213,7 @@ local function test_simplifyReassignmentAssignment(repo: string)
 
 	local expected = [[
 	]]
-	assert(apply(source, "FlagName", true, repo) == expected)
+	assert(apply(source, "FlagName", true) == expected)
 end
 
 return function()
@@ -230,6 +230,6 @@ return function()
 	test_simplifyAssignmentAfterBlockCollapse()
 	test_simplifyAssignmentWhenInitiallyAssignedToAValueAfterBlockCollapse()
 	for repo, _v in repoToFlagName do
-		test_simplifyReassignmentAssignment(repo)
+		test_simplifyReassignment(repo)
 	end
 end

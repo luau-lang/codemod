@@ -141,7 +141,8 @@ local function findVariables(block: luau.AstStatBlock)
 			return true
 		end
 		local globalFuncReference = globals[globalFuncName]
-		local isDoubleReference = expression.tag == "global" and expression.name.position.line == globalFuncReference.name.position.line
+		local isDoubleReference = expression.tag == "global"
+			and expression.name.position.line == globalFuncReference.name.position.line
 		if globalFuncReference and not isDoubleReference then -- only count tracked global funcs (don't care abt stuff like print (built in funcs) etc)
 			variables[globalFuncReference] += 1
 		end
