@@ -1,17 +1,5 @@
 local luau = require("@lute/luau")
 
-local function printTable(table, indent: number)
-	for k, v in pairs(table) do
-		local indentString = string.rep("  ", indent)
-		if type(v) == "table" then
-			print(indentString .. tostring(k) .. ": (table)")
-			printTable(v, indent + 1)
-		else
-			print(indentString .. tostring(k) .. ": " .. tostring(v))
-		end
-	end
-end
-
 local function isGameGlobal(expression: luau.AstExpr)
 	return expression.tag == "global" and expression.name.text == "game"
 end
@@ -27,25 +15,12 @@ end
 
 local function isUIBloxFlagAccess(expr: luau.AstExpr, flagName: string): boolean
 	-- Handle usage: UIBloxConfig.FlagName
-	if expr.tag == "indexname" then
-		-- return isUIBloxConfig(expr.expression) and expr.index.text == flagName
-		return expr.index.text == flagName
+	if expr.tag == "indexname" and expr.index.text == flagName then
+		return (expr.expression["local"] and expr.expression["local"].name.text == "UIBloxConfig")
+			or (expr.expression.name and expr.expression.name.text == "UIBloxConfig")
 	end
 
-	-- Handle declaration in config table: { FlagName = boolean, ... } (hmmmmm)
-	-- if expr.tag == "table" then
-	-- 	for k, v in pairs(expr.entries) do
-	-- 		print(k, v, v.key.text)
-	-- 		for k2, v2 in pairs(v) do
-	-- 			print(k2, v2)
-	-- 		end
-	-- 		-- if v.key.text == flagName then
-	-- 		-- 	print("found flagName: " .. flagName)
-	-- 		-- 	return true
-	-- 		-- end
-	-- 	end
-	-- end
-
+	-- TO-DO: Handle removing declaration in config table: { FlagName = boolean, ... }
 	return false
 end
 
@@ -57,8 +32,6 @@ local function isSafeFlags(expression: luau.AstExpr)
 		return expression.name.text == "SafeFlags"
 	end
 	return typeof(expression.token.text) == "string" and expression.token.text == "SafeFlags"
-	-- -- can also do:
-	-- return typeof(expression["local"].name.text) == "string" and expression["local"].name.text == "SafeFlags"
 end
 
 local function isCreateGetFFlagCall(expression: luau.AstExpr)
@@ -90,24 +63,10 @@ local function isFoundationFlagAccess(expression: luau.AstExpr, flagName: string
 	return false
 end
 
-local function isDefaultFlagAccess(expr: luau.AstExpr, flagName: string): boolean
+local function isLuaAppsFlagAccess(expr: luau.AstExpr, flagName: string): boolean
 	if expr.tag ~= "call" then
 		return false
 	end
-
-	-- debug output
-	-- if expr.func.tag == "call" then
-	-- 	print("outer call tree:", expr.tag)
-	-- 	printTable(expr.arguments, 0)
-	-- 	if #expr.func.arguments >= 1 and expr.func.arguments[1].node.tag == "string" then
-	-- 		print("isFlagAccess:", expr.func.tag, expr.func.arguments)
-	-- 		print(expr.func.arguments[1].node.tag, expr.func.arguments[1].node.text)
-	-- 		if expr.func.func then
-	-- 			printTable(expr.func, 0)
-	-- 		end
-	-- 	end
-	-- 	print("--------------------------------")
-	-- end
 
 	return isFlagCall(expr.func)
 		and #expr.arguments >= 1
@@ -115,15 +74,16 @@ local function isDefaultFlagAccess(expr: luau.AstExpr, flagName: string): boolea
 		and expr.arguments[1].node.text == flagName
 end
 
-local repoFlagMatch = {
-	["Foundation"] = isFoundationFlagAccess,
-	["LuaApps"] = isDefaultFlagAccess,
-	["UIBlox"] = isUIBloxFlagAccess,
-}
+local function isFlagAccess(expr: luau.AstExpr, flagName: string): boolean
+	local isLuaAppsFlagAccess = isLuaAppsFlagAccess(expr, flagName)
+
+	local isFoundationFlagAccess = isFoundationFlagAccess(expr, flagName)
+
+	local isUIBloxFlagAccess = isUIBloxFlagAccess(expr, flagName)
+
+	return isLuaAppsFlagAccess or isFoundationFlagAccess or isUIBloxFlagAccess
+end
 
 return {
-	isUIBloxFlagAccess = isUIBloxFlagAccess,
-	isFoundationFlagAccess = isFoundationFlagAccess,
-	isDefaultFlagAccess = isDefaultFlagAccess,
-	repoFlagMatch = repoFlagMatch,
+	isFlagAccess = isFlagAccess,
 }
