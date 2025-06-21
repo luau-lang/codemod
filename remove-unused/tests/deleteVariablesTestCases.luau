@@ -17,8 +17,6 @@ local testCases = {
         print("hello")
     end
 
-    -- This function is unused and should be removed entirely,
-    -- including its multi-line comment.
     local function unused_func()
         local x = 1
         return x
@@ -31,6 +29,7 @@ local testCases = {
         print("hello")
     end
 
+    
     keep_me()
     ]],
 
@@ -210,6 +209,19 @@ local testCases = {
     ]] ] = [[
 
     ]], -- should all be removed
+
+	-- Declaration of n vars to <n val
+	[ [[
+        local function two()
+            return 1, 2
+        end
+        local x, y = two()
+    ]] ] = [[
+        local function two()
+            return 1, 2
+        end
+        local x, y = two()
+     ]],
 }
 
 return testCases

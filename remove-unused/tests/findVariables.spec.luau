@@ -3,10 +3,6 @@ local findVariablesUtils = require("../findVariablesUtils")
 local testCases = require("./findVariablesTestCases")
 local printTable = require("../../flag-clipper/matchers/flagAccessUtils").printTable
 
--- local searchScopeStack = findVariablesUtils.searchScopeStack
--- local handleVarDeclaration = findVariablesUtils.handleVarDeclaration
--- local handleVarReference = findVariablesUtils.handleVarReference
--- local handleAssign = findVariablesUtils.handleAssign
 local findVariables = findVariablesUtils.findVariables
 
 local function cntTableEntries(t)

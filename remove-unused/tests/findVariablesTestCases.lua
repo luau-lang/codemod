@@ -188,9 +188,9 @@ local testCases = {
 	[ [[
         local a = 10 -- line 0
         local b = 20 -- line 1
-        local result = a * (b + 5) -- line 2
-        print(result) -- line 3
-    ]] ] = { ["a_0"] = 1, ["b_1"] = 1, ["result_2"] = 1 },
+        local res = a * (b + 5) -- line 2
+        print(res) -- line 3
+    ]] ] = { ["a_0"] = 1, ["b_1"] = 1, ["res_2"] = 1 },
 
 	-- Multiple Declarations on One Line with Mixed Usage
 	-- 'b_0' is unused, 'a_0' and 'c_0' are used.
@@ -300,6 +300,13 @@ local testCases = {
 		["x_0"] = 1,
 		["a_1"] = 2,
 		["b_4"] = 1,
+	},
+
+	[ [[
+        local x = 1
+        return x
+    ]] ] = {
+		["x_0"] = 1,
 	},
 
 	--[[

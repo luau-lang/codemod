@@ -59,7 +59,9 @@ local function test_deleteVariables(block, expectedOutput)
 	local _vars, dels
 	while numDels > 0 do
 		_vars, dels, numDels = findVariables(block)
-		block = deleteVariables(block, dels)
+		if numDels > 0 then
+			block = deleteVariables(block, dels)
+		end
 	end
 	local outputSrc = printer.print(block)
 	print("Output:")

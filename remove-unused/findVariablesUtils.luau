@@ -21,19 +21,24 @@ export type globalStore = { -- map global func name to AST node
 
 local function excludeVarName(varName: string): boolean
 	-- Skip underscore-prefixed (intentionally unused)
-	if varName:sub(1, 1) == "_" then
+	if varName:sub(1, 1) == "_" or varName:find("success") or varName:find("err") or varName:find("result") then
 		return true
 	end
 	return false
 end
 
 -- handles nodes (representing a declared variable)
-local function handleVarDeclaration(nodes, variables: variableStore, scopeStack: { scope })
-	if nodes then
-		for _, v in nodes do
+local function handleVarDeclaration(nodeVars, nodeValues, variables: variableStore, scopeStack: { scope })
+	if nodeVars then
+		for _, v in nodeVars do
 			if v.node then
 				if not excludeVarName(v.node.name.text) then
-					variables[v.node] = 0
+					-- we do want to consider it a use when we are assigning multiple vals to a singular val, bc removing one while others are used may break things
+					if #nodeValues > 0 and #nodeVars > #nodeValues then
+						variables[v.node] = 1
+					else
+						variables[v.node] = 0
+					end
 					scopeStack[#scopeStack][v.node.name.text] = v.node
 				end
 			end
@@ -41,12 +46,15 @@ local function handleVarDeclaration(nodes, variables: variableStore, scopeStack:
 	end
 end
 
-local function handleAssign(assignedVars, variables: variableStore)
+local function handleAssign(assignedVars, assignedVals, variables: variableStore)
 	if assignedVars then
 		for _, v in assignedVars do
 			if v.node then
 				if variables[v.node["local"]] then
-					variables[v.node["local"]] -= 1
+					-- we do want to consider it a use when we are assigning multiple vals to a singular val, bc removing one while others are used may break things
+					if #assignedVars <= #assignedVals then
+						variables[v.node["local"]] -= 1
+					end
 				end
 			end
 		end
@@ -98,7 +106,7 @@ local function findVariables(block: luau.AstStatBlock)
 	-- ============ DECLARATIONS: local declarations, functions (and parameters), ... ============
 	-- our linters are fine with unused for/for in variables... so perhaps we ignore
 	getVarsVisitor.visitLocalDeclaration = function(expression: luau.AstStatLocal)
-		handleVarDeclaration(expression.variables, variables, scopeStack)
+		handleVarDeclaration(expression.variables, expression.values, variables, scopeStack)
 		return true
 	end
 	-- same process for local and normal functions (don't know what a typed function is)
@@ -166,7 +174,7 @@ local function findVariables(block: luau.AstStatBlock)
 	-- but visitLocal references picks it up
 	getVarsVisitor.visitAssign = function(expression: luau.AstStatAssign)
 		-- care abt: values but don't want to increment references for variables getting assigned (our linter does not consider this a var usage)
-		handleAssign(expression.variables, variables)
+		handleAssign(expression.variables, expression.values, variables)
 		return true
 	end
 
@@ -175,6 +183,10 @@ local function findVariables(block: luau.AstStatBlock)
 	print("Variables:")
 	printTable(variables, 1, true)
 	local numDeletions = 0
+	-- calculating this here is dangerous bc we bypass some deletions in delete (declarations that have less values than vars)
+	-- also just realizing, need to account for case where we define vars and then reassign w the above like case i.e
+	-- local x, y
+	-- local x, y = func()
 	for var, refs in variables do
 		if refs < 1 then
 			-- table.insert(deletions, var)
