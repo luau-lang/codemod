@@ -35,7 +35,7 @@ local function normalizeString(s)
 	-- 2. Unify indentation to use 4 spaces instead of tabs
 	s = s:gsub("\t", "    ")
 
-	-- 3. CRITICAL: Replace non-breaking spaces (and other weird Unicode spaces)
+	-- 3. Replace non-breaking spaces (and other weird Unicode spaces)
 	--    with standard spaces. The byte representation for non-breaking space
 	--    in UTF-8 is 194, 160.
 	s = s:gsub("\194\160", " ")
@@ -46,13 +46,12 @@ local function normalizeString(s)
 	-- 5. (Optional but recommended) Trim leading/trailing whitespace from the whole block
 	s = s:match("^%s*(.-)%s*$")
 
+	-- bc of how test-cases are typed this function is useful for just matching content of expected output
 	return s
 end
 
 local function test_deleteVariables(block, expectedOutput)
-	print()
-	print("======================")
-	print("Current Case:")
+	print("\n======================\nCurrent Case:")
 	block = parser.parse(block)
 	print(printer.print(block))
 	local numDels = 1
@@ -64,10 +63,7 @@ local function test_deleteVariables(block, expectedOutput)
 		end
 	end
 	local outputSrc = printer.print(block)
-	print("Output:")
-	print(outputSrc)
-
-	print("======================")
+	print("Output:\n", outputSrc, "\n", ("======================"))
 
 	assert(normalizeString(outputSrc) == normalizeString(expectedOutput))
 end
@@ -78,4 +74,4 @@ local function run()
 	end
 end
 
-run()
+return run

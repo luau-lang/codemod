@@ -42,13 +42,10 @@ local function test_findVariables(codeBlock, expectedOutput)
 	print("======================")
 end
 
-for src, expectedOutput in pairs(testCases) do
-	test_findVariables(src, expectedOutput)
+local function run()
+	for src, expectedOutput in pairs(testCases) do
+		test_findVariables(src, expectedOutput)
+	end
 end
--- hmmm, do we want individual tests for scopeStack and findingVariableDecs/Refs? i feel like we can just test all as one...
 
--- local example = require("../example")
--- print(example[1])
--- local exampleSrc = parser.parse(example[1])
--- print("Printing Example Source Code from Root")
--- printTable(exampleSrc, 0)
+return run
