@@ -126,7 +126,6 @@ local function applyMigration(
 end
 
 local function main(...: string)
-
 	local args = arguments.parse({ ... })
 
 	if args.dryRun then
