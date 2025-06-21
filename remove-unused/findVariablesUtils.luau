@@ -20,7 +20,7 @@ export type globalStore = { -- map global func name to AST node
 }
 
 local function excludeVarName(varName: string): boolean
-	-- Skip underscore-prefixed (intentionally unused)
+	-- Skip underscore-prefixed (intentionally unused) and common pcall var names (not quite robust...)
 	if varName:sub(1, 1) == "_" or varName:find("success") or varName:find("err") or varName:find("result") then
 		return true
 	end
@@ -114,8 +114,10 @@ local function findVariables(block: luau.AstStatBlock)
 		-- we care abt func.name.name; func parameters are not considered unused if they have no uses
 		-- handleVarNodes(expression.body.parameters, variables) -- don't necesarilly need this bc linter is mad
 		if expression.name then
-			variables[expression.name] = 0
-			scopeStack[#scopeStack][expression.name.name.text] = expression.name
+			if not excludeVarName(expression.name.name.text) then
+				variables[expression.name] = 0
+				scopeStack[#scopeStack][expression.name.name.text] = expression.name
+			end
 		end
 		return true
 	end
@@ -123,8 +125,10 @@ local function findVariables(block: luau.AstStatBlock)
 	-- handle global function definitions
 	getVarsVisitor.visitFunction = function(expression: luau.AstStatLocalFunction)
 		if expression.name.name then
-			globals[expression.name.name.text] = expression.name
-			variables[expression.name] = 0
+			if not excludeVarName(expression.name.name.text) then
+				globals[expression.name.name.text] = expression.name
+				variables[expression.name] = 0
+			end
 			-- dont think we need to add to scope stack bc how cud type reference (only thing that searches scope stack) prefix match w a global function...?
 		end
 		return true
