@@ -20,8 +20,8 @@ export type globalStore = { -- map global func name to AST node
 }
 
 local function excludeVarName(varName: string): boolean
-	-- Skip underscore-prefixed (intentionally unused) and common pcall var names (not quite robust...)
-	if varName:sub(1, 1) == "_" or varName:find("success") or varName:find("err") or varName:find("result") then
+	-- Skip underscore-prefixed (intentionally unused)
+	if varName:sub(1, 1) == "_" then
 		return true
 	end
 	return false
