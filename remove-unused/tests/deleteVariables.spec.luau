@@ -63,7 +63,7 @@ local function test_deleteVariables(block, expectedOutput)
 		end
 	end
 	local outputSrc = printer.print(block)
-	print("Output:\n", outputSrc, "\n", "======================")
+	print("Output:\n" .. outputSrc .. "\n" .. "======================")
 
 	assert(normalizeString(outputSrc) == normalizeString(expectedOutput))
 end
