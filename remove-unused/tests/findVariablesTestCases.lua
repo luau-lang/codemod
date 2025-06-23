@@ -309,6 +309,21 @@ local testCases = {
 		["x_0"] = 1,
 	},
 
+    -- edge sort of case: multiple varss to one value (we don't want to touch these bc will inevitably break code if we do)
+    [ [[
+        local function z()
+            return 1, 2, 3
+        end
+        local a, b, c = z()
+    ]] ] = {
+        ["z_0"] = 1,
+        ["a_3"] = 1,
+        ["b_3"] = 1,
+        ["c_3"] = 1,
+    }
+    -- hmmm, mayb better solution is to add _ to unused var name? rather than adjust behavior of findVariables to consider this a use...?? will have to think on this 
+
+
 	--[[
         the only part of findVariables that uses the scopeStack is the visitTypeReference
         this would be a case where we have something like:
