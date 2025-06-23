@@ -44,6 +44,21 @@ local function simplifyBlock(block: luau.AstStatBlock, ctx: evaluate.EvaluateCon
 			end
 
 			table.insert(statements, statement)
+		elseif statement.tag == "assign" then
+			-- Skip (i.e. delete) if any assignment target is a flag reference
+			local shouldDelete = false
+			for _, variable in statement.variables do
+				if ctx.references:isReference(variable.node) then
+					shouldDelete = true
+					break
+				end
+			end
+
+			if shouldDelete then
+				continue
+			end
+
+			table.insert(statements, statement)
 		elseif statement.tag == "conditional" then
 			local simplified = simplifyConditional(statement, ctx)
 			if simplified == nil then

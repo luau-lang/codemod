@@ -5,6 +5,12 @@ local evaluate = require("../evaluate")
 local simplifyBlock = require("../simplifyBlock")
 local TrackReferences = require("../TrackReferences")
 
+local repoToFlagName: { [string]: string } = {
+	["Foundation"] = 'SafeFlags.createGetFFlag("FlagName")()',
+	["LuaApps"] = 'game:GetFastFlag("FlagName")',
+	["UIBlox"] = "UIBloxConfig.FlagName",
+}
+
 local function apply(source: string, flagName: string?, flagValue: boolean?)
 	flagName = flagName or "FlagName"
 	flagValue = if flagValue ~= nil then flagValue else true
@@ -199,6 +205,17 @@ local function test_simplifyAssignmentWhenInitiallyAssignedToAValueAfterBlockCol
 	assert(apply(source, "FlagName", true) == expected)
 end
 
+local function test_simplifyReassignment(repo: string)
+	local source = [[local FlagName = ]] .. repoToFlagName[repo] .. [[
+
+		FlagName = true
+	]]
+
+	local expected = [[
+	]]
+	assert(apply(source, "FlagName", true) == expected)
+end
+
 return function()
 	test_removeDefinition()
 	test_removeGetterCall()
@@ -212,4 +229,7 @@ return function()
 	test_simplifyBlockIntoNothing()
 	test_simplifyAssignmentAfterBlockCollapse()
 	test_simplifyAssignmentWhenInitiallyAssignedToAValueAfterBlockCollapse()
+	for repo, _v in repoToFlagName do
+		test_simplifyReassignment(repo)
+	end
 end
