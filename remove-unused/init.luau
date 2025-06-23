@@ -14,8 +14,8 @@ local codemod = require("./lib/types")
 local seleneExclude: { string } = nil
 
 local function initialize(ctx: codemod.InitializationContext<Options>)
-	if ctx.options.seleneConfig ~= "" then
-		local seleneTomlSrc = fs.readfiletostring(ctx.options.seleneConfig)
+	if ctx.options.selene ~= "" then
+		local seleneTomlSrc = fs.readfiletostring(ctx.options.selene)
 		seleneExclude = getSeleneExclude(seleneTomlSrc)
 	end
 end
