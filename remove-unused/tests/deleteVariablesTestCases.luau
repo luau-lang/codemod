@@ -222,6 +222,21 @@ local testCases = {
         end
         local x, y = two()
      ]],
+
+	-- edge case: global function is used before it is defined; still needs to be picked up as use
+	[ [[
+        local a = b()
+        function b()
+            return 1
+        end
+        print(a)
+     ]] ] = [[
+        local a = b()
+        function b()
+            return 1
+        end
+        print(a)
+    ]],
 }
 
 return testCases

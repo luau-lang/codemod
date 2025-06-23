@@ -16,7 +16,10 @@ export type deletionStore = {
 }
 
 export type globalStore = { -- map global func name to AST node
-	[string]: luau.AstExpr,
+	[string]: {
+		ref: luau.AstExpr,
+		beforeInitCnt: number,
+	},
 }
 
 local function excludeVarName(varName: string): boolean
@@ -125,9 +128,17 @@ local function findVariables(block: luau.AstStatBlock)
 	-- handle global function definitions
 	getVarsVisitor.visitFunction = function(expression: luau.AstStatLocalFunction)
 		if expression.name.name then
-			if not excludeVarName(expression.name.name.text) then
-				globals[expression.name.name.text] = expression.name
-				variables[expression.name] = 0
+			local funcName = expression.name.name.text
+			if not excludeVarName(funcName) then
+				if not globals[funcName] then
+					globals[funcName] = {
+						ref = expression.name,
+						beforeInitCnt = 0,
+					}
+				else
+					globals[expression.name.name.text].ref = expression.name
+				end
+				variables[expression.name] = globals[expression.name.name.text].beforeInitCnt - 1 -- visitExpression will count the function definition as a use, so we decrement by one here
 			end
 			-- dont think we need to add to scope stack bc how cud type reference (only thing that searches scope stack) prefix match w a global function...?
 		end
@@ -146,17 +157,20 @@ local function findVariables(block: luau.AstStatBlock)
 	-- handle's global function calls and references
 	getVarsVisitor.visitExpression = function(expression: luau.AstExprGlobal)
 		local globalFuncName
-		if expression.tag == "global" and globals[expression.name.text] then -- this procs for function definition, call, and non-call ref so need to avoid double counting
-			-- maybe can check if on same line as globalFuncReference (reference to definition...) to avoid double cnt
+		if expression.tag == "global" then
 			globalFuncName = expression.name.text
-		else
-			return true
-		end
-		local globalFuncReference = globals[globalFuncName]
-		local isDoubleReference = expression.tag == "global"
-			and expression.name.position.line == globalFuncReference.name.position.line
-		if globalFuncReference and not isDoubleReference then -- only count tracked global funcs (don't care abt stuff like print (built in funcs) etc)
-			variables[globalFuncReference] += 1
+			if not globals[globalFuncName] then
+				globals[globalFuncName] = {
+					ref = nil,
+					beforeInitCnt = 0,
+				}
+			end
+			local globalFuncReference = globals[globalFuncName].ref
+			if globalFuncReference then -- if already seen function definition; increment it's use count
+				variables[globalFuncReference] += 1
+			else -- bc global funcs can be used before they are actually defined, keep track of count we find bfore definition so we can properly track use
+				globals[globalFuncName].beforeInitCnt += 1
+			end
 		end
 		return true
 	end

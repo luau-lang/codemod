@@ -321,7 +321,17 @@ local testCases = {
 		["b_3"] = 1,
 		["c_3"] = 1,
 	},
-	-- hmmm, mayb better solution is to add _ to unused var name? rather than adjust behavior of findVariables to consider this a use...?? will have to think on this
+
+	-- edge case: global function is used before it is defined; still needs to be picked up as use
+	[ [[
+        local a = b()
+        function b()
+            return 1
+        end
+     ]] ] = {
+		["a_0"] = 0,
+		["b_1"] = 1,
+	},
 
 	--[[
         the only part of findVariables that uses the scopeStack is the visitTypeReference
