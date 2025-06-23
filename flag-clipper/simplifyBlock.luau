@@ -45,7 +45,6 @@ local function simplifyBlock(block: luau.AstStatBlock, ctx: evaluate.EvaluateCon
 
 			table.insert(statements, statement)
 		elseif statement.tag == "assign" then
-			-- Not sure if this has any bad use cases for LuaApps, but useful in Foundation and UIBlox
 			-- Skip (i.e. delete) if any assignment target is a flag reference
 			local shouldDelete = false
 			for _, variable in statement.variables do
