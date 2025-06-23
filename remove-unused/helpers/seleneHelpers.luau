@@ -21,12 +21,10 @@ local function exclude(filePath, excludePaths: { string }): boolean
 	for _, pattern in ipairs(excludePaths) do
 		-- Convert gitignore-style pattern to a Lua pattern
 		local luaPattern = pattern:gsub("%.", "%%."):gsub("%*", ".*")
-		-- print(luaPattern)
 		-- Anchor the pattern to the beginning of the string
 		if not luaPattern:match("^.*") then
 			luaPattern = "^" .. luaPattern
 		end
-
 		if filePath:match(luaPattern) then
 			return true
 		end

@@ -1,7 +1,6 @@
 local luau = require("@lute/luau")
 local findVariablesUtils = require("./findVariablesUtils")
 local visitor = require("@batteries/syntax/visitor")
-local printTable = require("../flag-clipper/matchers/flagAccessUtils").printTable
 
 type deletionStore = findVariablesUtils.deletionStore
 

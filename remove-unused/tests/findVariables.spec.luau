@@ -1,7 +1,6 @@
 local parser = require("@batteries/syntax/parser")
 local findVariablesUtils = require("../findVariablesUtils")
 local testCases = require("./findVariablesTestCases")
-local printTable = require("../../flag-clipper/matchers/flagAccessUtils").printTable
 
 local findVariables = findVariablesUtils.findVariables
 
@@ -23,23 +22,20 @@ local function outputMatch(output: findVariablesUtils.variableStore, expectedOut
 		passedCases += 1
 	end
 	local totalCases = cntTableEntries(expectedOutput)
-	print(`Correctly tracked {passedCases}/{totalCases} variables`)
+	print(`Correctly tracked {passedCases}/{totalCases} variables\n("======================")`)
 	assert(passedCases == totalCases)
 end
 -- we can perhaps use varName_declarationLine as a key instead of just varName for better
 -- means of testing scope
 
 local function test_findVariables(codeBlock, expectedOutput)
-	print()
-	print("======================")
-	print("Current Case:")
+	print("\n======================\nCurrent Case:")
 	print(codeBlock)
 
 	local block = parser.parse(codeBlock)
 
-	local outputVars, outputDels = findVariables(block)
+	local outputVars, _outputDels = findVariables(block)
 	outputMatch(outputVars, expectedOutput)
-	print("======================")
 end
 
 local function run()
