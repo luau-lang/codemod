@@ -15,7 +15,7 @@ local function apply(source: string, flagName: string?, flagValue: boolean?)
 	flagName = flagName or "FlagName"
 	flagValue = if flagValue ~= nil then flagValue else true
 
-	local references = TrackReferences.new(flagName or "FlagName", {}, nil)
+	local references = TrackReferences.new(flagName or "FlagName", {})
 
 	local context: evaluate.EvaluateContext = {
 		flagName = flagName,
