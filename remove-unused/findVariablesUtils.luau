@@ -1,7 +1,38 @@
 local luau = require("@lute/luau")
 
 local visitor = require("@batteries/syntax/visitor")
-local printTable = require("../flag-clipper/matchers/flagAccessUtils").printTable
+
+local function printTable(table, indent: number, result: boolean?)
+	for k, v in pairs(table) do
+		local indentString = string.rep("  ", indent)
+		if not result then
+			if type(v) == "table" and not tostring(k):find("Trivia") then
+				print(indentString .. tostring(k) .. ": (table)")
+				printTable(v, indent + 1, false)
+			else
+				print(indentString .. tostring(k) .. ": " .. tostring(v))
+			end
+		else
+			if type(k) == "table" then
+				print(
+					indentString
+						.. tostring((k.name and (k.name.text or k.text)) or k)
+						.. ", line "
+						.. tostring(if k.name and k.name.position then k.name.position.line else "")
+						.. ": "
+						.. tostring(v)
+				)
+			else
+				print(
+					indentString
+						.. tostring((v.name and (v.name.text or v.text)) or v)
+						.. ", line "
+						.. tostring(if v.name and v.name.position then v.name.position.line else "")
+				)
+			end
+		end
+	end
+end
 
 export type scope = {
 	[string]: luau.AstExpr,
@@ -73,12 +104,7 @@ end
 local function searchScopeStack(scopeStack: { scope }, varName: string, variables: variableStore)
 	-- check all vars in current scope; if not found, go to next deepest scope (search up the scope tree)
 	local curScope = #scopeStack
-	print("Searching Scope Stack for", varName)
 	while curScope > 0 do
-		print(" curScope Keys")
-		for k, v in pairs(scopeStack[curScope]) do
-			print(" " .. k)
-		end
 		if scopeStack[curScope][varName] then
 			local varReference = scopeStack[curScope][varName]
 			variables[varReference] += 1
@@ -183,7 +209,7 @@ local function findVariables(block: luau.AstStatBlock)
 		end
 		return true
 	end
-	--hmm sadly, in context like: local typeTable = {...}, local x: typeTable.type
+	-- hmm sadly, in context like: local typeTable = {...}, local x: typeTable.type
 	-- visitTypeReference has no local pointer to typeTabel (for cases like this, we might need to keep track of scope)
 	-- for accurately incrementing variable count with nothing but a varName to go off of
 

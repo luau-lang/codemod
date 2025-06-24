@@ -1,7 +1,4 @@
 local function getSeleneExclude(tomlContent): { string }
-	-- takes in path of selene.toml
-	-- look for exclude =
-	-- then grab the patterns in between [] square brackets and return list
 	local patterns = {}
 
 	-- Isolate the content within the exclude = [...] block
