@@ -78,9 +78,15 @@ local function test_simplifyIfAndElseIf()
 	assert(printSimplify(source) == expected)
 end
 
-local function test_simplifyIfIntermediateCondition()
+local function test_simplifyElseIfIntermediateCondition()
 	local source = "if value then 1 elseif game:GetFastFlag('FlagName') then 2 else 3"
 	local expected = "if value then 1 else 2 "
+	assert(printSimplify(source) == expected)
+end
+
+local function test_simplifyElseIfMultipleLevels()
+	local source = "if value then 1 elseif value2 then 2 elseif game:GetFastFlag('FlagName') then 3 else 4"
+	local expected = "if value then 1 elseif value2 then 2 else 3 "
 	assert(printSimplify(source) == expected)
 end
 
@@ -100,6 +106,7 @@ return function()
 	test_simplifyIfExprRemoveIfKeepElseif()
 	test_simplifyIfIntoElseif()
 	test_simplifyIfAndElseIf()
-	test_simplifyIfIntermediateCondition()
+	test_simplifyElseIfIntermediateCondition()
+	test_simplifyElseIfMultipleLevels()
 	test_removeKeyFromTable()
 end
