@@ -138,7 +138,59 @@ local function test_simplifyIfIntoElseif()
 	]]
 
 	local expected = [[
+		if false then
+			local x = 1
+		else
 			local x = 2
+		end
+	]]
+
+	assert(apply(source, "FlagName") == expected)
+end
+
+local function test_simplifyElseIfIntermediateCondition()
+	local source = [[
+		if value then
+			local x = 1
+		elseif game:GetFastFlag("FlagName") then
+			local x = 2
+		else
+			local x = 3
+		end
+	]]
+
+	local expected = [[
+		if value then
+			local x = 1
+		else
+			local x = 2
+		end
+	]]
+
+	assert(apply(source, "FlagName") == expected)
+end
+
+local function test_simplifyElseIfMultipleLevels()
+	local source = [[
+		if value then
+			local x = 1
+		elseif value2 then
+			local x = 2
+		elseif game:GetFastFlag("FlagName") then
+			local x = 3
+		else
+			local x = 4
+		end
+	]]
+
+	local expected = [[
+		if value then
+			local x = 1
+		elseif value2 then
+			local x = 2
+		else
+			local x = 3
+		end
 	]]
 
 	assert(apply(source, "FlagName") == expected)
@@ -225,6 +277,8 @@ return function()
 	test_keepComplicatedIf()
 	test_simplifyIfStatementRemoveIfKeepElseif()
 	test_simplifyIfIntoElseif()
+	test_simplifyElseIfIntermediateCondition()
+	test_simplifyElseIfMultipleLevels()
 	test_simplifyIfAndElseIf()
 	test_simplifyBlockIntoNothing()
 	test_simplifyAssignmentAfterBlockCollapse()
