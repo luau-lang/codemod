@@ -20,7 +20,13 @@ local function simplifyConditional(
 	for _, elseifNode in node.elseifs do
 		local elseifConditionResult = evaluate(elseifNode.condition, ctx)
 		if elseifConditionResult == true then
-			return elseifNode.consequent
+			-- Replace the else block with the contents of this node
+			-- Do not progress any further (as further conditions are no longer reachable)
+			node.elseKeyword = elseifNode.elseifKeyword
+			node.elseKeyword.text = "else"
+			node.elseKeyword.trailingTrivia = elseifNode.thenKeyword.trailingTrivia
+			node.antecedent = elseifNode.consequent
+			break
 		elseif elseifConditionResult == false then
 			-- Skip (i.e. delete) the elseif node
 			continue
