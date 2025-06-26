@@ -227,6 +227,34 @@ local function test_simplifyBlockIntoNothing()
 	assert(apply(source, "FlagName", false) == expected)
 end
 
+local function test_simplifyAssignmentExpression()
+	local source = [[
+		variable = game:GetFastFlag("FlagName")
+		variable2 = not game:GetFastFlag("FlagName")
+	]]
+
+	local expected = [[
+		variable = true
+		variable2 = false
+	]]
+
+	assert(apply(source, "FlagName", true) == expected)
+end
+
+local function test_simplifyAssignmentExpressionFlagFalse()
+	local source = [[
+		variable = game:GetFastFlag("FlagName")
+		variable2 = not game:GetFastFlag("FlagName")
+	]]
+
+	local expected = [[
+		variable = false
+		variable2 = true
+	]]
+
+	assert(apply(source, "FlagName", false) == expected)
+end
+
 local function test_simplifyAssignmentAfterBlockCollapse()
 	local source = [[
 		local variable
@@ -268,6 +296,16 @@ local function test_simplifyReassignment(repo: string)
 	assert(apply(source, "FlagName", true) == expected)
 end
 
+local function test_simplifyReturn()
+	assert(apply('return game:GetFastFlag("FlagName")', "FlagName", true) == "return true")
+	assert(apply('return not game:GetFastFlag("FlagName")', "FlagName", true) == "return false")
+end
+
+local function test_simplifyReturnFlagFalse()
+	assert(apply('return game:GetFastFlag("FlagName")', "FlagName", false) == "return false")
+	assert(apply('return not game:GetFastFlag("FlagName")', "FlagName", false) == "return true")
+end
+
 return function()
 	test_removeDefinition()
 	test_removeGetterCall()
@@ -281,9 +319,13 @@ return function()
 	test_simplifyElseIfMultipleLevels()
 	test_simplifyIfAndElseIf()
 	test_simplifyBlockIntoNothing()
+	test_simplifyAssignmentExpression()
+	test_simplifyAssignmentExpressionFlagFalse()
 	test_simplifyAssignmentAfterBlockCollapse()
 	test_simplifyAssignmentWhenInitiallyAssignedToAValueAfterBlockCollapse()
 	for repo, _v in repoToFlagName do
 		test_simplifyReassignment(repo)
 	end
+	test_simplifyReturn()
+	test_simplifyReturnFlagFalse()
 end
