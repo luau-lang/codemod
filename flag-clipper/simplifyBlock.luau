@@ -21,19 +21,10 @@ end
 
 --- Simplify expressions that directly reference the flag (or its inverse)
 local function simplifyConstantExpression(ctx: evaluate.EvaluateContext, expression: luau.AstExpr): luau.AstExpr?
-	if ctx.references:isReference(expression) then
+	local constantEvaluation = evaluate(expression, ctx)
+	if constantEvaluation ~= nil then
 		return createConstantBoolean(
-			ctx.flagValue,
-			trivia.getLeadingTrivia(expression),
-			trivia.getTrailingTrivia(expression)
-		)
-	elseif
-		expression.tag == "unary"
-		and expression.operator.text == "not"
-		and ctx.references:isReference(expression.operand)
-	then
-		return createConstantBoolean(
-			not ctx.flagValue,
+			constantEvaluation,
 			trivia.getLeadingTrivia(expression),
 			trivia.getTrailingTrivia(expression)
 		)
