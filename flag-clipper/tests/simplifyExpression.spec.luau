@@ -97,6 +97,20 @@ local function test_removeKeyFromTable()
 	assert(printSimplify(source) == expected)
 end
 
+local function test_simplifyPseudoTernary()
+	local source = "game:GetFastFlag('FlagName') and value1 or value2"
+	local expected = "value1 "
+
+	assert(printSimplify(source) == expected)
+end
+
+local function test_simplifyPseudoTernaryInverse()
+	local source = "not game:GetFastFlag('FlagName') and value1 or value2"
+	local expected = "value2"
+
+	assert(printSimplify(source) == expected)
+end
+
 return function()
 	test_simplifyBinary()
 	-- test_simplifyUnary()
@@ -109,4 +123,6 @@ return function()
 	test_simplifyElseIfIntermediateCondition()
 	test_simplifyElseIfMultipleLevels()
 	test_removeKeyFromTable()
+	test_simplifyPseudoTernary()
+	test_simplifyPseudoTernaryInverse()
 end
