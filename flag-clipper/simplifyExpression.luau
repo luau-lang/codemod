@@ -13,7 +13,45 @@ local function isConstantFalseValue(expression: luau.AstExpr, ctx: evaluate.Eval
 	return value == false
 end
 
+type PseudoTernaryParts = {
+	condition: luau.AstExpr,
+	consequent: luau.AstExpr,
+	antecedent: luau.AstExpr,
+}
+
+--- Checks if the provided expression is a "pseudo-ternary" (of the form 'x and y or z')
+--- This typically corresponds to legacy code that is before if-else expressions.
+--- However, for the sake of flag clipping, we can treat it in the same way
+local function isPseudoTernary(expression: luau.AstExprBinary): PseudoTernaryParts?
+	if expression.operator.text ~= "or" then
+		return nil
+	end
+
+	if expression.lhsoperand.tag ~= "binary" then
+		return nil
+	end
+
+	if expression.lhsoperand.operator.text ~= "and" then
+		return nil
+	end
+
+	return {
+		condition = expression.lhsoperand.lhsoperand,
+		consequent = expression.lhsoperand.rhsoperand,
+		antecedent = expression.rhsoperand,
+	}
+end
+
 local function simplifyBinary(expression: luau.AstExprBinary, ctx: evaluate.EvaluateContext): luau.AstExpr
+	local pseudoTernary = isPseudoTernary(expression)
+	if pseudoTernary then
+		if isConstantTrueValue(pseudoTernary.condition, ctx) then
+			return pseudoTernary.consequent
+		elseif isConstantFalseValue(pseudoTernary.condition, ctx) then
+			return pseudoTernary.antecedent
+		end
+	end
+
 	if expression.operator.text == "and" then
 		if isConstantTrueValue(expression.lhsoperand, ctx) then
 			-- true and x => x

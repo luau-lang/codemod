@@ -2,6 +2,36 @@ local luau = require("@lute/luau")
 
 local evaluate = require("./evaluate")
 local simplifyConditional = require("./simplifyConditional")
+local trivia = require("./trivia")
+
+local function createConstantBoolean(
+	value: boolean,
+	leadingTrivia: { luau.Trivia },
+	trailingTrivia: { luau.Trivia }
+): luau.AstExprConstantBool
+	return {
+		tag = "boolean",
+		value = value,
+		text = tostring(value) :: "true" | "false",
+		leadingTrivia = leadingTrivia,
+		trailingTrivia = trailingTrivia,
+		position = { line = 0, column = 0 },
+	}
+end
+
+--- Simplify expressions that directly reference the flag (or its inverse)
+local function simplifyConstantExpression(ctx: evaluate.EvaluateContext, expression: luau.AstExpr): luau.AstExpr?
+	local constantEvaluation = evaluate(expression, ctx)
+	if constantEvaluation ~= nil then
+		return createConstantBoolean(
+			constantEvaluation,
+			trivia.getLeadingTrivia(expression),
+			trivia.getTrailingTrivia(expression)
+		)
+	end
+
+	return nil
+end
 
 local function simplifyBlock(block: luau.AstStatBlock, ctx: evaluate.EvaluateContext): luau.AstStatBlock
 	local statements = {}
@@ -56,6 +86,22 @@ local function simplifyBlock(block: luau.AstStatBlock, ctx: evaluate.EvaluateCon
 
 			if shouldDelete then
 				continue
+			end
+
+			for _, expression in statement.values do
+				local simplified = simplifyConstantExpression(ctx, expression.node)
+				if simplified then
+					expression.node = simplified
+				end
+			end
+
+			table.insert(statements, statement)
+		elseif statement.tag == "return" then
+			for _, expression in statement.expressions do
+				local simplified = simplifyConstantExpression(ctx, expression.node)
+				if simplified then
+					expression.node = simplified
+				end
 			end
 
 			table.insert(statements, statement)
