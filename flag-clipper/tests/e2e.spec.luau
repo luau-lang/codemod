@@ -175,6 +175,56 @@ local function test_compoundConditionWithUnary()
 	assert(apply(source, "FlagName", true) == expected)
 end
 
+local function test_cleanupFastFlagsForTesting()
+	local source = [[
+		describe("old school", function()
+			beforeAll(function()
+				game:SetFastFlagForTesting("FlagName", true)
+			end)
+			afterAll(function()
+				game:SetFastFlagForTesting("FlagName", false)
+			end)
+		end)
+
+		describe("a bit newer", function()
+			local oldFlagValue
+			beforeAll(function()
+				oldFlagValue = game:SetFastFlagForTesting("FlagName", true)
+			end)
+			afterAll(function()
+				game:SetFastFlagForTesting("FlagName", oldFlagValue)
+			end)
+		end)
+
+		describe("newest", function()
+			setScopedFFlag("FlagName", true)
+		end)
+	]]
+
+	local expected = [[
+		describe("old school", function()
+			beforeAll(function()
+			end)
+			afterAll(function()
+			end)
+		end)
+
+		describe("a bit newer", function()
+			local oldFlagValue
+			beforeAll(function()
+				oldFlagValue = true
+			end)
+			afterAll(function()
+			end)
+		end)
+
+		describe("newest", function()
+		end)
+	]]
+
+	assert(apply(source, "FlagName", true) == expected)
+end
+
 local function test_snapshots()
 	local baseDirectory = path.joinPath(process.cwd(), "flag-clipper/tests/snapshots")
 
@@ -237,5 +287,6 @@ return function()
 	test_markFlagModuleForDeletion()
 	test_compoundCondition()
 	test_compoundConditionWithUnary()
+	test_cleanupFastFlagsForTesting()
 	test_snapshots()
 end
