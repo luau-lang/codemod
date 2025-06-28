@@ -11,6 +11,7 @@ local fileResolver = require("./require-resolver/resolver")
 
 local TrackReferences = require("@self/TrackReferences")
 local isFlagModule = require("@self/matchers/isFlagModule")
+local modified = require("@self/modified")
 local simplifyExpression = require("@self/simplifyExpression")
 local simplifyBlock = require("@self/simplifyBlock")
 
@@ -33,6 +34,8 @@ local function inplaceReplace(old: luau.AstExpr, new: luau.AstExpr, references: 
 	-- Since `new` expr is now replacing `old`, we need to update the references mapping as it works
 	-- based on table pointer equality
 	references._expressions[old] = references._expressions[new]
+
+	modified.setModified(old)
 end
 
 type Options = {
