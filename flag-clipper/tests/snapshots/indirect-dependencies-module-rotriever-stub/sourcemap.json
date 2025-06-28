@@ -1,0 +1,31 @@
+{
+  "name": "Test",
+  "className": "DataModel",
+  "children": [
+    {
+      "name": "Flags",
+      "className": "ModuleScript",
+      "filePaths": ["input/Flags.luau"]
+    },
+    {
+      "name": "getFFlagFlagName",
+      "className": "ModuleScript",
+      "filePaths": ["input/getFFlagFlagName.luau"]
+    },
+    {
+      "name": "Module",
+      "className": "ModuleScript",
+      "filePaths": ["input/Module.luau"]
+    },
+    {
+      "name": "Stub",
+      "className": "ModuleScript",
+      "filePaths": ["input/Stub.luau"]
+    },
+    {
+      "name": "User",
+      "className": "ModuleScript",
+      "filePaths": ["input/User.luau"]
+    }
+  ]
+}
