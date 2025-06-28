@@ -10,7 +10,36 @@ local function isFlagCall(expression: luau.AstExpr)
 	end
 
 	return isGameGlobal(expression.expression)
-		and (expression.index.text == "DefineFastFlag" or expression.index.text == "GetFastFlag")
+		and (
+			expression.index.text == "DefineFastFlag"
+			or expression.index.text == "GetFastFlag"
+			or expression.index.text == "SetFastFlagForTesting"
+		)
+end
+
+local function isStandardFlagAccess(expr: luau.AstExpr, flagName: string): boolean
+	if expr.tag ~= "call" then
+		return false
+	end
+
+	return isFlagCall(expr.func)
+		and #expr.arguments >= 1
+		and expr.arguments[1].node.tag == "string"
+		and expr.arguments[1].node.text == flagName
+end
+
+local function isSetScopedFFlag(expression: luau.AstExpr, flagName: string): boolean
+	if expression.tag ~= "call" then
+		return false
+	end
+
+	local isSetScopedFFlag = (expression.func.tag == "global" and expression.func.name.text == "setScopedFFlag")
+		or (expression.func.tag == "local" and expression.func.token.text == "setScopedFFlag")
+
+	return isSetScopedFFlag
+		and #expression.arguments >= 1
+		and expression.arguments[1].node.tag == "string"
+		and expression.arguments[1].node.text == flagName
 end
 
 local function isUIBloxFlagAccess(expr: luau.AstExpr, flagName: string): boolean
@@ -61,25 +90,11 @@ local function isFoundationFlagAccess(expression: luau.AstExpr, flagName: string
 	return false
 end
 
-local function isLuaAppsFlagAccess(expr: luau.AstExpr, flagName: string): boolean
-	if expr.tag ~= "call" then
-		return false
-	end
-
-	return isFlagCall(expr.func)
-		and #expr.arguments >= 1
-		and expr.arguments[1].node.tag == "string"
-		and expr.arguments[1].node.text == flagName
-end
-
 local function isFlagAccess(expr: luau.AstExpr, flagName: string): boolean
-	local isLuaAppsFlagAccess = isLuaAppsFlagAccess(expr, flagName)
-
-	local isFoundationFlagAccess = isFoundationFlagAccess(expr, flagName)
-
-	local isUIBloxFlagAccess = isUIBloxFlagAccess(expr, flagName)
-
-	return isLuaAppsFlagAccess or isFoundationFlagAccess or isUIBloxFlagAccess
+	return isStandardFlagAccess(expr, flagName)
+		or isSetScopedFFlag(expr, flagName)
+		or isFoundationFlagAccess(expr, flagName)
+		or isUIBloxFlagAccess(expr, flagName)
 end
 
 return isFlagAccess
