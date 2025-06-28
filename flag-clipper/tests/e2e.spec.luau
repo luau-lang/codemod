@@ -225,6 +225,27 @@ local function test_cleanupFastFlagsForTesting()
 	assert(apply(source, "FlagName", true) == expected)
 end
 
+local function test_cleanupEntriesFromTable()
+	local source = [[
+		local tbl = {
+			value = if game:GetFastFlag("FlagName") then nil else DEPRECATED_VALUE
+		}
+
+		local dependencies = { if game:GetFastFlag("FlagName") then nil else DEPRECATED_DEPENDENCY }
+	]]
+
+	local expected = [[
+		local tbl = {
+		}
+
+		local dependencies = { }
+	]]
+
+	print(apply(source))
+
+	assert(apply(source, "FlagName", true) == expected)
+end
+
 local function test_snapshots()
 	local baseDirectory = path.joinPath(process.cwd(), "flag-clipper/tests/snapshots")
 
@@ -288,5 +309,6 @@ return function()
 	test_compoundCondition()
 	test_compoundConditionWithUnary()
 	test_cleanupFastFlagsForTesting()
+	test_cleanupEntriesFromTable()
 	test_snapshots()
 end

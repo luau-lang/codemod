@@ -2,6 +2,7 @@ local luau = require("@lute/luau")
 
 local createConstantBoolean = require("./createConstantBoolean")
 local evaluate = require("./evaluate")
+local modified = require("./modified")
 local simplifyConditional = require("./simplifyConditional")
 local trivia = require("./trivia")
 
@@ -103,6 +104,11 @@ local function simplifyTable(expression: luau.AstExprTable, ctx: evaluate.Evalua
 				trivia.getLeadingTrivia(field.value),
 				trivia.getTrailingTrivia(field.value)
 			)
+		end
+
+		--- Remove fields from a table if they were simplified by the flag-clipper, and are now `nil`
+		if modified.isModified(field.value) and field.value.tag == "nil" then
+			continue
 		end
 
 		table.insert(entries, field)
