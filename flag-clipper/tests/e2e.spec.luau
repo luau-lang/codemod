@@ -1,4 +1,5 @@
 local fs = require("@lute/fs")
+local process = require("@lute/process")
 
 local codemod = require("../")
 local files = require("../../lib/files")
@@ -175,7 +176,7 @@ local function test_compoundConditionWithUnary()
 end
 
 local function test_snapshots()
-	local baseDirectory = "flag-clipper/tests/snapshots"
+	local baseDirectory = path.joinPath(process.cwd(), "flag-clipper/tests/snapshots")
 
 	local function getOutputLocation(outputDirectory: string, filepath: string)
 		-- TODO: get proper output path using "relative" path apis

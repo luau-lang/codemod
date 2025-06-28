@@ -1,15 +1,17 @@
+local fs = require("@lute/fs")
 local luau = require("@lute/luau")
+local parser = require("@batteries/syntax/parser")
 
 local visitor = require("@batteries/syntax/visitor")
 
+local fileResolver = require("../require-resolver/resolver")
 local isRequire = require("../require-resolver/isRequire")
 local sourcemap = require("../require-resolver/sourcemap")
 local requireTracer = require("../require-resolver/tracer")
 
 local isFlagAccess = require("./matchers/isFlagAccess")
 local isFlagFunction = require("./matchers/isFlagFunction")
-
-local getModuleInfo = require("./getModuleInfo")
+local isFlagModule = require("./matchers/isFlagModule")
 
 local TrackReferences = {}
 TrackReferences.__index = TrackReferences
@@ -49,6 +51,19 @@ type TrackReferencesData = {
 	_expressionTableData: { [luau.AstExpr]: TableData },
 	_visitor: visitor.Visitor,
 }
+
+--- Information about a required module
+export type ModuleInfo = {
+	--- Whether this module returns a direct flag reference / flag getter function.
+	--- In these cases, this module will typically be deleted, and we can assume all usages of the
+	--- required result to be flag references.
+	isFlagModule: boolean,
+	--- The resolved table information if the required module returns a table
+	tableData: TableData?,
+}
+
+--- Global cache of 'file path' -> moduleInfo mapping
+local FlagModuleFileCache: { [string]: ModuleInfo } = {}
 
 export type TrackReferences = setmetatable<TrackReferencesData, typeof(TrackReferences)>
 
@@ -185,6 +200,79 @@ end
 --- Either a direct reference, or an indirect reference via a local
 function TrackReferences.isReference(self: TrackReferences, expression: luau.AstExpr): boolean
 	return self._expressions[expression] == true
+end
+
+local function getReturnedExpression(body: luau.AstStatBlock): luau.AstExpr?
+	if #body.statements == 0 then
+		return nil
+	end
+
+	local lastStmt = body.statements[#body.statements]
+	if lastStmt.tag ~= "return" then
+		return nil
+	end
+
+	if #lastStmt.expressions ~= 1 then
+		return nil
+	end
+
+	local expression = lastStmt.expressions[1].node
+	return expression
+end
+
+--- Resolves the given expression to its require call, follows the require, then processes the
+--- resulting file for relevant information.
+function getModuleInfo(
+	expression: luau.AstExpr,
+	flagName: string,
+	requireInfo: requireTracer.RequireTracerResult,
+	sourcemapData: sourcemap.SourcemapData?
+): ModuleInfo?
+	if not isRequire(expression) then
+		return nil
+	end
+
+	assert(expression.tag == "call")
+
+	local requireCallInfo = requireInfo[expression]
+	if not requireCallInfo then
+		return nil
+	end
+
+	local requirePath = requireCallInfo.moduleName
+	if sourcemap.isVirtualPath(requirePath) then
+		assert(sourcemapData, "Encountered a virtual path, but no sourcemap information was available")
+		requirePath = sourcemap.virtualPathToRealPath(sourcemapData, requirePath)
+	end
+
+	if not requirePath then
+		return nil
+	end
+
+	if FlagModuleFileCache[requirePath] ~= nil then
+		return FlagModuleFileCache[requirePath]
+	end
+
+	local contents = fs.readfiletostring(requirePath)
+	local block = parser.parse(contents)
+	assert(block)
+
+	local result: ModuleInfo = { isFlagModule = false, tableData = nil }
+	if isFlagModule(block, flagName) then
+		result.isFlagModule = true
+	else
+		local returnedExpression = getReturnedExpression(block)
+		if returnedExpression then
+			requireInfo =
+				requireTracer.traceRequires(block, requirePath, fileResolver.createFileResolver(sourcemapData))
+			local references = TrackReferences.new(flagName, requireInfo, sourcemapData)
+			references:visit(block)
+			result.tableData = references._expressionTableData[returnedExpression]
+		end
+	end
+
+	FlagModuleFileCache[requirePath] = result
+	return result
 end
 
 return TrackReferences
