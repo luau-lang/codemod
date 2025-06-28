@@ -175,6 +175,34 @@ local function test_compoundConditionWithUnary()
 	assert(apply(source, "FlagName", true) == expected)
 end
 
+local function test_callWithPseudoTernary()
+	local source = [[
+		Instance.new(game:GetFastFlag("FlagName") and 'ImageButton' or 'Frame')
+	]]
+
+	local expected = [[
+		Instance.new('ImageButton' )
+	]]
+
+	print(apply(source))
+
+	assert(apply(source, "FlagName", true) == expected)
+end
+
+local function test_callWithPseudoTernaryInverse()
+	local source = [[
+		Instance.new(not game:GetFastFlag("FlagName") and 'ImageButton' or 'Frame')
+	]]
+
+	local expected: string = [[
+		Instance.new('Frame')
+	]]
+
+	print(apply(source))
+
+	assert(apply(source, "FlagName", true) == expected)
+end
+
 local function test_cleanupFastFlagsForTesting()
 	local source = [[
 		describe("old school", function()
@@ -308,6 +336,8 @@ return function()
 	test_markFlagModuleForDeletion()
 	test_compoundCondition()
 	test_compoundConditionWithUnary()
+	test_callWithPseudoTernary()
+	test_callWithPseudoTernaryInverse()
 	test_cleanupFastFlagsForTesting()
 	test_cleanupEntriesFromTable()
 	test_snapshots()
