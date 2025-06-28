@@ -22,7 +22,7 @@ local function outputMatch(output: findVariablesUtils.variableStore, expectedOut
 		passedCases += 1
 	end
 	local totalCases = cntTableEntries(expectedOutput)
-	print(`Correctly tracked {passedCases}/{totalCases} variables\n("======================")`)
+	print(`Correctly tracked {passedCases}/{totalCases} variables\n======================`)
 	assert(passedCases == totalCases)
 end
 -- we can perhaps use varName_declarationLine as a key instead of just varName for better

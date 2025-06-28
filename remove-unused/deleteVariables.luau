@@ -1,6 +1,9 @@
 local luau = require("@lute/luau")
 local findVariablesUtils = require("./findVariablesUtils")
 local visitor = require("@batteries/syntax/visitor")
+local triviaHelpers = require("./helpers/triviaHelpers")
+local handleLeadingTriviaInsertion = triviaHelpers.handleLeadingTriviaInsertion
+local extractStatementTrivia = triviaHelpers.extractStatementTrivia
 
 type deletionStore = findVariablesUtils.deletionStore
 
@@ -57,103 +60,41 @@ local function handleVariableStatement(varStatement: luau.AstStatLocal, deletion
 	return varsToKeep, valsToKeep
 end
 
-local function handleLeadingTrivia(attachTo: luau.AstExpr, toInsert: { lua.AstExpr })
-	local newTrivia = {}
-	while #toInsert > 0 do
-		-- 	-- Strip spaces and tabs from trivia.text unless it is a comment
-		local trivia = table.remove(toInsert, #toInsert)
-		for _, token in pairs(trivia) do
-			token.text = if token.tag == "whitespace" then token.text:gsub("[ \t]+", "") else token.text
-			table.insert(newTrivia, token)
-		end
-	end
-	for _, trivia in attachTo.leadingTrivia do
-		table.insert(newTrivia, trivia)
-	end
-	return newTrivia
-end
-
-local function insertLeadingTrivia(statement: luau.AstStat, triviaToInsert: { luau.AstExpr })
-	-- i want to insert
-	-- need to handle bunch of diff types of tags to insert trivia at appropriate point;
-	-- essentially want to get leading trivia of syntactically earliest node in statement
-
-	if statement.tag == "expression" or statement.tag == "indexname" then
-		-- recur on expressions till we find something with leading trivia
-		insertLeadingTrivia(statement.expression, triviaToInsert)
-	elseif statement.tag == "local" or statement.tag == "localfunction" then
-		if statement.localKeyword then
-			statement.localKeyword.leadingTrivia = handleLeadingTrivia(statement.localKeyword, triviaToInsert)
-		else
-			statement.token.leadingTrivia = handleLeadingTrivia(statement.token, triviaToInsert)
-		end
-	elseif statement.tag == "function" then
-		statement.functionKeyword.leadingTrivia = handleLeadingTrivia(statement.functionKeyword, triviaToInsert)
-	elseif statement.tag == "assign" or statement.tag == "compoundassign" then
-		-- recur till we find something with leading trivia
-		insertLeadingTrivia(statement.variables[1].node, triviaToInsert)
-	elseif statement.tag == "conditional" then
-		statement.ifKeyword.leadingTrivia = handleLeadingTrivia(statement.ifKeyword, triviaToInsert)
-	elseif statement.tag == "for" or statement.tag == "forin" then
-		statement.forKeyword.leadingTrivia = handleLeadingTrivia(statement.forKeyword, triviaToInsert)
-	elseif statement.tag == "while" then
-		statement.whileKeyword.leadingTrivia = handleLeadingTrivia(statement.whileKeyword, triviaToInsert)
-	elseif statement.tag == "repeat" then
-		statement.repeatKeyword.leadingTrivia = handleLeadingTrivia(statement.repeatKeyword, triviaToInsert)
-	elseif statement.tag == "call" then
-		-- recur till we find something with leading trivia
-		insertLeadingTrivia(statement.func, triviaToInsert)
-	elseif statement.tag == "return" then
-		statement.returnKeyword.leadingTrivia = handleLeadingTrivia(statement.returnKeyword, triviaToInsert)
-	end
-end
-
-local function getStatementLeadingTrivia(statement: luau.AstStat)
-	-- only type of statements we worry abt are those we can delete
-	return if statement.tag == "assign"
-		then statement.variables[1].node["local"].leadingTrivia
-		elseif statement.tag == "local" or statement.tag == "localfunction" then statement.localKeyword.leadingTrivia
-		elseif statement.tag == "function" then statement.functionKeyword.leadingTrivia
-		else nil
-end
-
 local function deleteVariables(block: luau.AstStatBlock, deletions: deletionStore)
 	local removalsVisitor = visitor.createVisitor()
 
 	removalsVisitor.visitBlockEnd = function(block: luau.AstStatBlock)
 		local filteredStatements = {}
-		local priorLeadingTrivia = {}
+		local priorTrivia = {}
 
 		for _, statement in block.statements do
-			local statementLeadingTrivia
 			-- need to store this so we get leading trivia of statement pre-removal
 			-- we delete function declarations, variable declarations, and variable assignments (will we need to delete function assingments too...?)
-			-- for each deleted statement, we store it's leading trivia (what ever non-code (comments, whitespace) is between the prior statement and the current) in a table
+			-- for each deleted statement, we store it's trivia (what ever non-code (comments, whitespace) is between the prior statement and the current) in a table
 			-- whenever we come across a statement we are keeping, we append all the leading trivia in our store to the statement's existing leading trivia
-			-- this ensures we preserve comments and relevant whitespace (mostly newlines)
+			-- this ensures we preserve comments (and kinda formatting)
 			if statement.tag == "localfunction" or statement.tag == "function" then
 				if deletions[statement.name] then
-					statementLeadingTrivia = getStatementLeadingTrivia(statement)
-					table.insert(priorLeadingTrivia, statementLeadingTrivia)
+					extractStatementTrivia(statement, priorTrivia)
 					continue
 				end
 			elseif statement.tag == "local" or statement.tag == "assign" then -- cheeky edge case! bc we don't consider assignments a use, we need to remove assignments of unused variables
 				if #statement.variables == 0 then
 					continue
 				end
-				local newVars
-				newVars, statement.values = handleVariableStatement(statement, deletions, statement.tag == "assign") -- reassign statement variables and values
+				local newVars, newVals
+				newVars, newVals = handleVariableStatement(statement, deletions, statement.tag == "assign") -- reassign statement variables and values
 				if #newVars == 0 then -- if deleting all vars
-					statementLeadingTrivia = getStatementLeadingTrivia(statement) -- get trivia from original statement
-					table.insert(priorLeadingTrivia, statementLeadingTrivia)
+					extractStatementTrivia(statement, priorTrivia)
 					continue
 				end
 				statement.variables = newVars
+				statement.values = newVals
 			end
-			if #priorLeadingTrivia > 0 then
+			if #priorTrivia > 0 then
 				-- if we have stored leading trivia from deleted statements and are keeping the current statement,
 				-- insert the leading trivia from previously removed statements
-				insertLeadingTrivia(statement, priorLeadingTrivia) -- when we remove a statement fully, we need to preserve it's leading trivia by attaching to the next statement
+				handleLeadingTriviaInsertion(statement, priorTrivia) -- when we remove a statement fully, we need to preserve it's trivia by attaching to the next statement
 			end
 			table.insert(filteredStatements, statement)
 		end

@@ -11,7 +11,7 @@ local excludeFile = helpers.excludeFile
 local codemod = require("./lib/types")
 
 -- Global cache for selene exclude patterns
-local seleneExclude: { string } = nil
+local seleneExclude: { string } = {}
 
 local function initialize(ctx: codemod.InitializationContext<Options>)
 	if ctx.options.selene ~= "" then

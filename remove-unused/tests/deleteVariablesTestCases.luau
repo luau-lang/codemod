@@ -88,10 +88,11 @@ local testCases = {
 
 	-- Deleting a variable with a trailing comment
 	[ [[
-    local unused = 1 -- This comment is tied to the unused var and should be removed.
+    local unused = 1 -- This comment is tied to the unused var but should be preserved.
     local a = 2
     print(a)
     ]] ] = [[
+    -- This comment is tied to the unused var but should be preserved.
     local a = 2
     print(a)
     ]],
