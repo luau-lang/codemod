@@ -97,6 +97,13 @@ local function test_removeKeyFromTable()
 	assert(printSimplify(source) == expected)
 end
 
+local function test_setKeyToFalseInTable()
+	local source = "{ featureIsDisabled = not game:GetFastFlag('FlagName') }"
+	local expected = "{ featureIsDisabled = false }"
+
+	assert(printSimplify(source) == expected)
+end
+
 local function test_simplifyPseudoTernary()
 	local source = "game:GetFastFlag('FlagName') and value1 or value2"
 	local expected = "value1 "
@@ -123,6 +130,7 @@ return function()
 	test_simplifyElseIfIntermediateCondition()
 	test_simplifyElseIfMultipleLevels()
 	test_removeKeyFromTable()
+	test_setKeyToFalseInTable()
 	test_simplifyPseudoTernary()
 	test_simplifyPseudoTernaryInverse()
 end
