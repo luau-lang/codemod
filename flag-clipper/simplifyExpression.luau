@@ -1,7 +1,9 @@
 local luau = require("@lute/luau")
 
+local createConstantBoolean = require("./createConstantBoolean")
 local evaluate = require("./evaluate")
 local simplifyConditional = require("./simplifyConditional")
+local trivia = require("./trivia")
 
 local function isConstantTrueValue(expression: luau.AstExpr, ctx: evaluate.EvaluateContext)
 	local value = evaluate(expression, ctx)
@@ -85,13 +87,24 @@ local function simplifyBinary(expression: luau.AstExprBinary, ctx: evaluate.Eval
 	return expression
 end
 
---- Removes fields from a table that resolve to the removed Flag
 local function simplifyTable(expression: luau.AstExprTable, ctx: evaluate.EvaluateContext)
 	local entries = {}
 	for _, field in expression.entries do
+		--- Remove fields from a table that directly reference the removed Flag
 		if ctx.references:isReference(field.value) then
 			continue
 		end
+
+		--- Evaluate references to the flag if available, and replace the fields in the table with the evaluation
+		local constantEvaluation = evaluate(field.value, ctx)
+		if constantEvaluation ~= nil then
+			field.value = createConstantBoolean(
+				constantEvaluation,
+				trivia.getLeadingTrivia(field.value),
+				trivia.getTrailingTrivia(field.value)
+			)
+		end
+
 		table.insert(entries, field)
 	end
 	expression.entries = entries
