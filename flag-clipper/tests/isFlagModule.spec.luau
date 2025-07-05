@@ -1,4 +1,4 @@
-local parser = require("@batteries/syntax/parser")
+local parser = require("@std/syntax/parser")
 local isFlagModule = require("../matchers/isFlagModule")
 
 local function test_emptyBlock()

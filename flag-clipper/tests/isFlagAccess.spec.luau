@@ -1,4 +1,4 @@
-local parser = require("@batteries/syntax/parser")
+local parser = require("@std/syntax/parser")
 local isFlagAccess = require("../matchers/isFlagAccess")
 
 local function test_matchesDefineFastFlag()

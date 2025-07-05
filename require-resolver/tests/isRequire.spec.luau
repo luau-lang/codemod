@@ -1,4 +1,4 @@
-local parser = require("@batteries/syntax/parser")
+local parser = require("@std/syntax/parser")
 local isRequire = require("../isRequire")
 
 local function test_matchesStringRequire()
