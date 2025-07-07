@@ -1,7 +1,10 @@
 local luau = require("@lute/luau")
 
+local createConstantBoolean = require("./createConstantBoolean")
 local evaluate = require("./evaluate")
+local modified = require("./modified")
 local simplifyConditional = require("./simplifyConditional")
+local trivia = require("./trivia")
 
 local function isConstantTrueValue(expression: luau.AstExpr, ctx: evaluate.EvaluateContext)
 	local value = evaluate(expression, ctx)
@@ -13,45 +16,7 @@ local function isConstantFalseValue(expression: luau.AstExpr, ctx: evaluate.Eval
 	return value == false
 end
 
-type PseudoTernaryParts = {
-	condition: luau.AstExpr,
-	consequent: luau.AstExpr,
-	antecedent: luau.AstExpr,
-}
-
---- Checks if the provided expression is a "pseudo-ternary" (of the form 'x and y or z')
---- This typically corresponds to legacy code that is before if-else expressions.
---- However, for the sake of flag clipping, we can treat it in the same way
-local function isPseudoTernary(expression: luau.AstExprBinary): PseudoTernaryParts?
-	if expression.operator.text ~= "or" then
-		return nil
-	end
-
-	if expression.lhsoperand.tag ~= "binary" then
-		return nil
-	end
-
-	if expression.lhsoperand.operator.text ~= "and" then
-		return nil
-	end
-
-	return {
-		condition = expression.lhsoperand.lhsoperand,
-		consequent = expression.lhsoperand.rhsoperand,
-		antecedent = expression.rhsoperand,
-	}
-end
-
 local function simplifyBinary(expression: luau.AstExprBinary, ctx: evaluate.EvaluateContext): luau.AstExpr
-	local pseudoTernary = isPseudoTernary(expression)
-	if pseudoTernary then
-		if isConstantTrueValue(pseudoTernary.condition, ctx) then
-			return pseudoTernary.consequent
-		elseif isConstantFalseValue(pseudoTernary.condition, ctx) then
-			return pseudoTernary.antecedent
-		end
-	end
-
 	if expression.operator.text == "and" then
 		if isConstantTrueValue(expression.lhsoperand, ctx) then
 			-- true and x => x
@@ -67,6 +32,17 @@ local function simplifyBinary(expression: luau.AstExprBinary, ctx: evaluate.Eval
 			return simplify(expression.rhsoperand, ctx)
 		end
 	elseif expression.operator.text == "or" then
+		-- Handle the case for pseudo-ternaries (FlagValue and x or y)
+		-- Due to precedence rules, this would be simplified originally to (x or y)
+		-- We can check if 'x' is modified, and then simplify it further as a pseudo-ternary
+		if modified.isModified(expression.lhsoperand) then
+			if isConstantFalseValue(expression.lhsoperand, ctx) then
+				return expression.rhsoperand
+			else
+				return expression.lhsoperand
+			end
+		end
+
 		if isConstantTrueValue(expression.lhsoperand, ctx) then
 			-- true or x => true
 			return simplify(expression.lhsoperand, ctx)
@@ -85,13 +61,29 @@ local function simplifyBinary(expression: luau.AstExprBinary, ctx: evaluate.Eval
 	return expression
 end
 
---- Removes fields from a table that resolve to the removed Flag
 local function simplifyTable(expression: luau.AstExprTable, ctx: evaluate.EvaluateContext)
 	local entries = {}
 	for _, field in expression.entries do
+		--- Remove fields from a table that directly reference the removed Flag
 		if ctx.references:isReference(field.value) then
 			continue
 		end
+
+		--- Evaluate references to the flag if available, and replace the fields in the table with the evaluation
+		local constantEvaluation = evaluate(field.value, ctx)
+		if constantEvaluation ~= nil then
+			field.value = createConstantBoolean(
+				constantEvaluation,
+				trivia.getLeadingTrivia(field.value),
+				trivia.getTrailingTrivia(field.value)
+			)
+		end
+
+		--- Remove fields from a table if they were simplified by the flag-clipper, and are now `nil`
+		if modified.isModified(field.value) and field.value.tag == "nil" then
+			continue
+		end
+
 		table.insert(entries, field)
 	end
 	expression.entries = entries

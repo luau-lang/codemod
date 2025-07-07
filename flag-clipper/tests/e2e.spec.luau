@@ -1,4 +1,5 @@
 local fs = require("@lute/fs")
+local process = require("@lute/process")
 
 local codemod = require("../")
 local files = require("../../lib/files")
@@ -174,8 +175,107 @@ local function test_compoundConditionWithUnary()
 	assert(apply(source, "FlagName", true) == expected)
 end
 
+local function test_callWithPseudoTernary()
+	local source = [[
+		Instance.new(game:GetFastFlag("FlagName") and 'ImageButton' or 'Frame')
+	]]
+
+	local expected = [[
+		Instance.new('ImageButton' )
+	]]
+
+	print(apply(source))
+
+	assert(apply(source, "FlagName", true) == expected)
+end
+
+local function test_callWithPseudoTernaryInverse()
+	local source = [[
+		Instance.new(not game:GetFastFlag("FlagName") and 'ImageButton' or 'Frame')
+	]]
+
+	local expected: string = [[
+		Instance.new('Frame')
+	]]
+
+	print(apply(source))
+
+	assert(apply(source, "FlagName", true) == expected)
+end
+
+local function test_cleanupFastFlagsForTesting()
+	local source = [[
+		describe("old school", function()
+			beforeAll(function()
+				game:SetFastFlagForTesting("FlagName", true)
+			end)
+			afterAll(function()
+				game:SetFastFlagForTesting("FlagName", false)
+			end)
+		end)
+
+		describe("a bit newer", function()
+			local oldFlagValue
+			beforeAll(function()
+				oldFlagValue = game:SetFastFlagForTesting("FlagName", true)
+			end)
+			afterAll(function()
+				game:SetFastFlagForTesting("FlagName", oldFlagValue)
+			end)
+		end)
+
+		describe("newest", function()
+			setScopedFFlag("FlagName", true)
+		end)
+	]]
+
+	local expected = [[
+		describe("old school", function()
+			beforeAll(function()
+			end)
+			afterAll(function()
+			end)
+		end)
+
+		describe("a bit newer", function()
+			local oldFlagValue
+			beforeAll(function()
+				oldFlagValue = true
+			end)
+			afterAll(function()
+			end)
+		end)
+
+		describe("newest", function()
+		end)
+	]]
+
+	assert(apply(source, "FlagName", true) == expected)
+end
+
+local function test_cleanupEntriesFromTable()
+	local source = [[
+		local tbl = {
+			value = if game:GetFastFlag("FlagName") then nil else DEPRECATED_VALUE
+		}
+
+		local dependencies = { if game:GetFastFlag("FlagName") then nil else DEPRECATED_DEPENDENCY }
+	]]
+
+	local expected = [[
+		local tbl = {
+		}
+
+		local dependencies = { }
+	]]
+
+	print(apply(source))
+
+	assert(apply(source, "FlagName", true) == expected)
+end
+
 local function test_snapshots()
-	local baseDirectory = "flag-clipper/tests/snapshots"
+	local baseDirectory = path.joinPath(process.cwd(), "flag-clipper/tests/snapshots")
 
 	local function getOutputLocation(outputDirectory: string, filepath: string)
 		-- TODO: get proper output path using "relative" path apis
@@ -236,5 +336,9 @@ return function()
 	test_markFlagModuleForDeletion()
 	test_compoundCondition()
 	test_compoundConditionWithUnary()
+	test_callWithPseudoTernary()
+	test_callWithPseudoTernaryInverse()
+	test_cleanupFastFlagsForTesting()
+	test_cleanupEntriesFromTable()
 	test_snapshots()
 end

@@ -1,23 +1,9 @@
 local luau = require("@lute/luau")
 
+local createConstantBoolean = require("./createConstantBoolean")
 local evaluate = require("./evaluate")
 local simplifyConditional = require("./simplifyConditional")
 local trivia = require("./trivia")
-
-local function createConstantBoolean(
-	value: boolean,
-	leadingTrivia: { luau.Trivia },
-	trailingTrivia: { luau.Trivia }
-): luau.AstExprConstantBool
-	return {
-		tag = "boolean",
-		value = value,
-		text = tostring(value) :: "true" | "false",
-		leadingTrivia = leadingTrivia,
-		trailingTrivia = trailingTrivia,
-		position = { line = 0, column = 0 },
-	}
-end
 
 --- Simplify expressions that directly reference the flag (or its inverse)
 local function simplifyConstantExpression(ctx: evaluate.EvaluateContext, expression: luau.AstExpr): luau.AstExpr?
