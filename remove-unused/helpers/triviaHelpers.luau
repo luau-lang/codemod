@@ -3,10 +3,9 @@ local luau = require("@lute/luau")
 local function insertLeadingTrivia(attachTo: luau.AstExpr, toInsert: { luau.AstExpr })
 	local newTrivia = {}
 	while #toInsert > 0 do
-		-- 	-- Strip spaces and tabs from trivia.text unless it is a comment
 		local trivia = table.remove(toInsert, 1)
 		for _, token in pairs(trivia) do
-			token.text = if token.tag == "whitespace" then token.text:gsub("[ \t]+", "") else token.text
+			token.text = if token.tag == "whitespace" then token.text:gsub("[ \t]+", "") else token.text -- Strip spaces and tabs from trivia.text unless it is a comment
 			table.insert(newTrivia, token)
 		end
 	end
@@ -22,7 +21,7 @@ local function handleLeadingTriviaInsertion(statement: luau.AstStat, triviaToIns
 	-- essentially want to insert triviaToInsert in the leading trivia of syntactically earliest node in statement
 
 	if statement.tag == "expression" or statement.tag == "indexname" then
-		-- recur on expressions till we find something with leading trivia
+		-- recur till we find a node with leading trivia
 		handleLeadingTriviaInsertion(statement.expression, triviaToInsert)
 	elseif statement.tag == "local" or statement.tag == "localfunction" then
 		if statement.localKeyword then
@@ -33,7 +32,7 @@ local function handleLeadingTriviaInsertion(statement: luau.AstStat, triviaToIns
 	elseif statement.tag == "function" then
 		statement.functionKeyword.leadingTrivia = insertLeadingTrivia(statement.functionKeyword, triviaToInsert)
 	elseif statement.tag == "assign" or statement.tag == "compoundassign" then
-		-- recur till we find something with leading trivia
+		-- recur till we find a node with leading trivia
 		handleLeadingTriviaInsertion(statement.variables[1].node, triviaToInsert)
 	elseif statement.tag == "conditional" then
 		statement.ifKeyword.leadingTrivia = insertLeadingTrivia(statement.ifKeyword, triviaToInsert)
@@ -44,12 +43,14 @@ local function handleLeadingTriviaInsertion(statement: luau.AstStat, triviaToIns
 	elseif statement.tag == "repeat" then
 		statement.repeatKeyword.leadingTrivia = insertLeadingTrivia(statement.repeatKeyword, triviaToInsert)
 	elseif statement.tag == "call" then
-		-- recur till we find something with leading trivia
+		-- recur till we find a node with leading trivia
 		handleLeadingTriviaInsertion(statement.func, triviaToInsert)
 	elseif statement.tag == "global" then
 		statement.name.leadingTrivia = insertLeadingTrivia(statement.name, triviaToInsert)
 	elseif statement.tag == "return" then
 		statement.returnKeyword.leadingTrivia = insertLeadingTrivia(statement.returnKeyword, triviaToInsert)
+	elseif statement.tag == "typealias" then
+		statement.typeToken.leadingTrivia = insertLeadingTrivia(statement.typeToken, triviaToInsert)
 	end
 end
 
