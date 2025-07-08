@@ -1,5 +1,7 @@
 local luau = require("@lute/luau")
 
+local printTable = require("../findVariablesUtils").printTable
+
 local function insertLeadingTrivia(attachTo: luau.AstExpr, toInsert: { luau.AstExpr })
 	local newTrivia = {}
 	while #toInsert > 0 do
@@ -50,7 +52,11 @@ local function handleLeadingTriviaInsertion(statement: luau.AstStat, triviaToIns
 	elseif statement.tag == "return" then
 		statement.returnKeyword.leadingTrivia = insertLeadingTrivia(statement.returnKeyword, triviaToInsert)
 	elseif statement.tag == "typealias" then
-		statement.typeToken.leadingTrivia = insertLeadingTrivia(statement.typeToken, triviaToInsert)
+		if statement.export then
+			statement.export.leadingTrivia = insertLeadingTrivia(statement.export, triviaToInsert)
+		else
+			statement.typeToken.leadingTrivia = insertLeadingTrivia(statement.typeToken, triviaToInsert)
+		end
 	end
 end
 
