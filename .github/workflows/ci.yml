@@ -34,6 +34,7 @@ jobs:
           lute flag-clipper/tests/runner.luau
           lute require-resolver/tests/isRequire.spec.luau
           lute require-resolver/tests/resolver_tracer.spec.luau
+          lute remove-unused/tests/runner.luau
 
   check-format:
     runs-on: ubuntu-latest
