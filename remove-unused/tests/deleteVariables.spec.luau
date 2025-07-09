@@ -1,16 +1,12 @@
 --[[
-this is essentially end to end testing of the full migration;
-these tests assume findVariables works and just test deletion functionality
-
-test set up similar to findVariables tests
-
-import test cases table
-define function that takes in block param
-repeatedly:
-    calls findVariables on block
-    calls deleteVariables on block
-until there are no vars to delete
-asserts output == expected output
+    Delete Variables and Functions Tests Module
+    
+    This module contains end-to-end tests for the remove-unused codemod.
+    It verifies that the combination of findVariables and deleteVariables functions 
+    correctly removes unused variables and functions from Lua/Luau code while preserving
+    the integrity and semantics of the code.
+    
+    The tests use predefined test cases from deleteVariablesTestCases.luau.
 ]]
 local parser = require("@batteries/syntax/parser")
 local printer = require("@batteries/syntax/printer")
@@ -18,12 +14,13 @@ local findVariables = require("../findVariablesUtils").findVariables
 local deleteVariables = require("../deleteVariables")
 local testCases = require("./deleteVariablesTestCases")
 
----
---- Normalizes a source code string to make comparisons reliable.
---- It handles different line endings and whitespace inconsistencies.
----
--- @param s The source code string to normalize.
--- @return The normalized string.
+--[[
+    Normalizes a source code string to make comparisons reliable.
+    It handles different line endings and whitespace inconsistencies.
+    
+    @param s The source code string to normalize.
+    @return The normalized string.
+]]
 local function normalizeString(s)
 	if not s then
 		return ""
@@ -50,6 +47,18 @@ local function normalizeString(s)
 	return s
 end
 
+--[[
+    Tests the deleteVariables functionality for a single test case.
+    
+    This function performs a complete unused variable removal process:
+    1. Parse the input code
+    2. Iteratively find and remove unused variables until none remain
+    3. Verify the final output matches the expected output
+    
+    @param block The input Lua/Luau code block to process
+    @param expectedOutput The expected code after removing unused variables
+    @throws Assertion error if outputs don't match
+]]
 local function test_deleteVariables(block, expectedOutput)
 	print("\n======================\nCurrent Case:")
 	block = parser.parse(block)

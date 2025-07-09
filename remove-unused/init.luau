@@ -1,3 +1,18 @@
+--[[
+    remove-unused codemod - Main Entry Point
+    
+    This codemod identifies and removes unused variables and functions from Lua/Luau code.
+    It works by:
+    1. Parsing the source code into an AST
+    2. Analyzing the AST to find unused variables and functions
+    3. Removing the unused items while preserving comments and formatting
+    4. Re-printing the modified AST back to source code
+
+    The codemod supports integration with selene linting rules to respect
+    file exclusions. It also handles iterative deletion in case removing some
+    variables or functions makes others unused.
+]]
+
 local luau = require("@lute/luau")
 local fs = require("@lute/fs")
 local findVariables = require("./remove-unused/findVariablesUtils").findVariables
@@ -13,6 +28,14 @@ local codemod = require("./lib/types")
 -- Global cache for selene exclude patterns
 local seleneExclude: { string } = {}
 
+--[[
+    Initialize the codemod with options.
+    
+    Loads the selene.toml configuration if provided to respect file exclusions.
+    This allows the codemod to skip files that are excluded from linting.
+    
+    @param ctx - The initialization context containing options
+]]
 local function initialize(ctx: codemod.InitializationContext<Options>)
 	if ctx.options.selene ~= "" then
 		local seleneTomlSrc = fs.readfiletostring(ctx.options.selene)
@@ -20,6 +43,19 @@ local function initialize(ctx: codemod.InitializationContext<Options>)
 	end
 end
 
+--[[
+    Transform a source file by removing unused variables.
+    
+    This function applies the following process:
+    1. Parse the source code into an AST
+    2. Check if the file is excluded by selene rules
+    3. Iteratively find and remove unused variables
+       (since removing some variables may make others unused)
+    4. Print the modified AST back to source code
+    
+    @param ctx - The transformation context containing the source code and path
+    @return - The transformed source code with unused variables removed
+]]
 local function transform(ctx: codemod.Context<Options>)
 	local result = parser.parsefile(ctx.source)
 	local block = result.root
