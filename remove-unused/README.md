@@ -51,33 +51,37 @@ The codemod uses a two-phase approach:
 
 ### Basic Variable Removal
 
+Before
 ```lua
--- Before
 local unused = 123
 local used = 456
 print(used)
+```
 
--- After
+After
+```lua
 local used = 456
 print(used)
 ```
 
 ### Multiple Variable Declaration
 
+Before
 ```lua
--- Before
 local a, b, c = 1, 2, 3
 print(a, c)
+```
 
--- After
+After
+```lua
 local a, c = 1, 3
 print(a, c)
 ```
 
 ### Function Removal
 
+Before
 ```lua
--- Before
 local function unusedFunction()
     return "never called"
 end
@@ -87,8 +91,10 @@ local function usedFunction()
 end
 
 print(usedFunction())
+```
 
--- After
+After
+```lua
 local function usedFunction()
     return "important"
 end
@@ -97,9 +103,8 @@ print(usedFunction())
 ```
 ### Comment Preservation
 
+Before
 ```lua
--- Before
-
 -- This comment is for x and should be preserved
 local x = 1
 -- This comment is for unused and should move to the next statement
@@ -107,9 +112,10 @@ local unused = 2
 -- This comment is for y
 local y = 3
 print(x, y)
+```
 
--- After
-
+After
+```lua
 -- This comment is for x and should be preserved
 local x = 1
 -- This comment is for unused and should move to the next statement
@@ -120,8 +126,8 @@ print(x, y)
 
 ### Complex Function Analysis
 
+Before
 ```lua
--- Before
 local function helper(x, y)
     return x + y
 end
@@ -136,8 +142,10 @@ local function calculate(input)
 end
 
 print(calculate(10))
+```
 
--- After
+After
+```lua
 local function helper(x, y)
     return x + y
 end
