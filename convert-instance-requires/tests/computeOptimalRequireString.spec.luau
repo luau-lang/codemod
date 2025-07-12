@@ -12,10 +12,10 @@ function test_requireFileInDifferentFolder()
 	assert(computeOptimalRequireString("src/client/file.luau", "src/server/other.luau") == "../server/other")
 end
 
--- function test_requireSiblingInitLuauFile()
--- 	assert(computeOptimalRequireString("src/client/file.luau", "src/client/init.luau") == ".")
--- 	assert(computeOptimalRequireString("src/client/file.luau", "src/client/init.lua") == ".")
--- end
+function test_requireSiblingInitLuauFile()
+	assert(computeOptimalRequireString("src/client/file.luau", "src/client/init.luau") == ".")
+	assert(computeOptimalRequireString("src/client/file.luau", "src/client/init.lua") == ".")
+end
 
 function test_requireDescendantInitLuauFile()
 	assert(computeOptimalRequireString("src/client/file.luau", "src/client/folder/init.luau") == "./folder")
@@ -52,7 +52,7 @@ end
 test_requireSiblingFile()
 test_requireDescendantFile()
 test_requireFileInDifferentFolder()
--- test_requireSiblingInitLuauFile()
+test_requireSiblingInitLuauFile()
 test_requireDescendantInitLuauFile()
 test_requireInitLuauFileInDifferentFolder()
 test_handleFromInitLuauFiles()

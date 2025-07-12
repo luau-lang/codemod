@@ -11,7 +11,7 @@ local function isInitLuauFile(filepath: string): boolean
 end
 
 --- Computes the optimal require string from 2 file system paths
-local function computeOptimalRequireString(from: string, to: string)
+local function computeOptimalRequireString(from: string, to: string): string
 	local fromInitLuau = isInitLuauFile(from)
 	if fromInitLuau then
 		from = assert(path.dirname(from))
@@ -33,6 +33,8 @@ local function computeOptimalRequireString(from: string, to: string)
 		if aliasedPath and #aliasedPath < #relativePath then
 			return aliasedPath
 		end
+	elseif relativePath == "." then
+		return relativePath
 	else
 		if strings.startsWith(relativePath, "./") then
 			if fromInitLuau then
