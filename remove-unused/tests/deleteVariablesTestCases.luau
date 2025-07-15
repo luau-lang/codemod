@@ -238,6 +238,31 @@ local testCases = {
         end
         print(a)
     ]],
+
+    -- appending preserved trivia to various statements
+    [ [[
+        -- preserve me
+        local a = 1 -- preserve me too
+        export type t = { string }
+        -- stay!
+        function p()
+            return 1
+        end -- pls stay!
+        function b()
+            return "nice"
+        end
+        print(b())
+    ]] ] = [[
+        -- preserve me
+        -- preserve me too
+        export type t = { string }
+        -- stay!
+        -- pls stay!
+        function b()
+            return "nice"
+        end
+        print(b()) 
+    ]]
 }
 
 return testCases

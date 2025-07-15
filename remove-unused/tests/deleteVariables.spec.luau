@@ -16,10 +16,7 @@ local testCases = require("./deleteVariablesTestCases")
 
 --[[
     Normalizes a source code string to make comparisons reliable.
-    It handles different line endings and whitespace inconsistencies.
-    
-    @param s The source code string to normalize.
-    @return The normalized string.
+    Essentially just used to make sure the formatting of our test cases doesn't affect the results we care about.
 ]]
 local function normalizeString(s)
 	if not s then
@@ -28,22 +25,20 @@ local function normalizeString(s)
 
 	-- 1. Unify line endings to LF (\n)
 	s = s:gsub("\r\n", "\n")
-
 	-- 2. Unify indentation to use 4 spaces instead of tabs
 	s = s:gsub("\t", "    ")
-
 	-- 3. Replace non-breaking spaces (and other weird Unicode spaces)
 	--    with standard spaces. The byte representation for non-breaking space
 	--    in UTF-8 is 194, 160.
 	s = s:gsub("\194\160", " ")
-
 	-- 4. (Optional but recommended) Trim trailing whitespace from each line
 	s = s:gsub("[ \t]+(\n)", "\n")
-
-	-- 5. (Optional but recommended) Trim leading/trailing whitespace from the whole block
+	-- 5. (Optional but recommended) Trim leading whitespace from each line 
+	--    but only for comment lines (lines that start with optional whitespace then --)
+	s = s:gsub("\n[ \t]+", "\n")
+	-- 6. Trim leading/trailing whitespace from block
 	s = s:match("^%s*(.-)%s*$")
 
-	-- bc of how test-cases are typed this function is useful for just matching content of expected output
 	return s
 end
 
@@ -73,6 +68,7 @@ local function test_deleteVariables(block, expectedOutput)
 	end
 	local outputSrc = printer.print(block)
 	print("Output:\n" .. outputSrc .. "\n" .. "======================")
+	print("Expected Output:\n" .. expectedOutput .. "\n" .. "======================")
 
 	assert(normalizeString(outputSrc) == normalizeString(expectedOutput))
 end
