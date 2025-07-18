@@ -4,11 +4,51 @@ local visitor = require("@batteries/syntax/visitor")
 local triviaHelpers = require("./helpers/triviaHelpers")
 local handleLeadingTriviaInsertion = triviaHelpers.handleLeadingTriviaInsertion
 local extractStatementTrivia = triviaHelpers.extractStatementTrivia
+local handleVariableStatementTrivia = triviaHelpers.handleVariableStatementTrivia
 
 type deletionStore = findVariablesUtils.deletionStore
 
+--[[
+	Determines if we should keep all variables for early return in `filterVariablesAndValues`.
+	
+	True if:
+	- We are keeping the same number of variables as the statement originally had (we are not removing anything)
+	- We have removed variables from a statement where multiple variables are assigned to a single function call. This will break code
+	
+	@param varsToKeep - The filtered variables
+	@param valsToKeep - The filtered vaues
+	@param varStatement - The original statement
+	@param hasValues - True if the original statement had values (was initialization or assignment)
+	@return boolean, true if we are keeping the statement as it originally was, false otherwise
+]]
+local function keepAllVariables(varsToKeep, valsToKeep, varStatement, hasValues): boolean
+	if #varsToKeep == #varStatement.variables then
+		return true
+	end
+
+	-- don't support deleting from statements where we assign multiple vars via a function call (unless all vars are unused AKA varsToKeep is empty)
+	if #varsToKeep > 0 and #varsToKeep < #varStatement.variables and hasValues and #varStatement.values < #varStatement.variables then
+		return true
+	end
+
+	return false
+end
+
+--[[
+	Function that filters a statement with variables based on our deletions store.
+	
+	All variable declarations, initializations, or assignments have a statement node with a `variables` and `values` property,
+	so reassigning these effectively filters and transforms the statement.
+
+	@param varStatement - The statement to filter
+	@param deletions - Our deletions store, used to determine if a variable is deleted (variable AST nodes key into deletions)
+	@param isAssign - If the statement is an assignment (i.e. a, b = 1, 2); indicates a different AST node structure
+	@param hasValues - If the statement has values (we can declare variables without initializaing a value)
+	@return `newVars` table containing the variable nodes to be kept 
+	@return `newVals` table containing the corresponding value nodes of `newVars`
+]]
 local function filterVariablesAndValues(
-	varStatement: luau.AstStatLocal,
+	varStatement: luau.AstStat,
 	deletions: deletionStore,
 	isAssign: boolean,
 	hasValues: boolean?
@@ -29,29 +69,14 @@ local function filterVariablesAndValues(
 		end
 	end
 
-	if #varsToKeep < #varStatement.variables and hasValues and #varStatement.values < #varStatement.variables then
-		-- Note: need to watch out for edge case:
-		-- don't support deleting from statements where we assign multiple vars via a function call (unless all vars are unused)
-		-- and some are used while some are not, i.e: local a, b = returnTwoVals() a gets used, b
-		-- does not, bc if removed b it breaks functionality
+	if keepAllVariables(varsToKeep, valsToKeep, varStatement, hasValues) then
 		return varStatement.variables, varStatement.values
 	end
 
 	if #varsToKeep > 0 then
-		-- the last var we keep needs to have a space, the last val we keep needs to preserve the original last vals trailing trivia
-		if varsToKeep[#varsToKeep].separator then
-			if hasValues then
-				varsToKeep[#varsToKeep].separator.text = ""
-			else
-				varsToKeep[#varsToKeep].separator = nil
-				varsToKeep[#varsToKeep].node.name.trailingTrivia = statementTrailingTrivia
-			end
-		end
-		if hasValues then
-			valsToKeep[#valsToKeep].separator = nil
-			valsToKeep[#valsToKeep].node.trailingTrivia = statementTrailingTrivia
-		end
+		handleVariableStatementTrivia(varsToKeep, valsToKeep, statementTrailingTrivia)
 	end
+
 	return varsToKeep, valsToKeep
 end
 
@@ -64,18 +89,16 @@ local function deleteVariables(block: luau.AstStatBlock, deletions: deletionStor
 	local removalsVisitor = visitor.createVisitor()
 
 	removalsVisitor.visitBlockEnd = function(block: luau.AstStatBlock)
-		local filteredStatements = {}
-		local priorTrivia = {}
+		local filteredStatements = {} -- for each deleted statement, we store it's trivia
+		-- whenever we come across a statement we are keeping, we append all the leading trivia in our store to the statement's existing leading trivia
+
+		local removedTrivia = {} -- used to store trivia of removed statements so we can preserve it
 
 		for _, statement in block.statements do
-			-- need to store this so we get leading trivia of statement pre-removal
-			-- we delete function declarations, variable declarations, and variable assignments (will we need to delete function assingments too...?)
-			-- for each deleted statement, we store it's trivia (what ever non-code (comments, whitespace) is between the prior statement and the current) in a table
-			-- whenever we come across a statement we are keeping, we append all the leading trivia in our store to the statement's existing leading trivia
-			-- this ensures we preserve comments (and kinda formatting)
+			-- function removal is straightforward, we just omit the entire statement from filteredStatements
 			if statement.tag == "localfunction" or statement.tag == "function" then
 				if deletions[statement.name] then
-					extractStatementTrivia(statement, priorTrivia)
+					extractStatementTrivia(statement, removedTrivia)
 					continue
 				end
 			elseif statement.tag == "local" or statement.tag == "assign" then -- cheeky edge case! bc we don't consider assignments a use, we need to remove assignments of unused variables
@@ -83,18 +106,18 @@ local function deleteVariables(block: luau.AstStatBlock, deletions: deletionStor
 					continue
 				end
 				local newVars, newVals
-				newVars, newVals = handleVariableStatement(statement, deletions, statement.tag == "assign") -- reassign statement variables and values
+				 -- get filtered statement variables and values
+				newVars, newVals = handleVariableStatement(statement, deletions, statement.tag == "assign")
 				if #newVars == 0 then -- if deleting all vars
-					extractStatementTrivia(statement, priorTrivia)
+					extractStatementTrivia(statement, removedTrivia)
 					continue
 				end
 				statement.variables = newVars
 				statement.values = newVals
 			end
-			if #priorTrivia > 0 then
-				-- if we have stored leading trivia from deleted statements and are keeping the current statement,
-				-- insert the leading trivia from previously removed statements
-				handleLeadingTriviaInsertion(statement, priorTrivia) -- when we remove a statement fully, we need to preserve it's trivia by attaching to the next statement
+			if #removedTrivia > 0 then
+				-- insert the leading trivia from previously removed statements to statement we are keeping
+				handleLeadingTriviaInsertion(statement, removedTrivia)
 			end
 			table.insert(filteredStatements, statement)
 		end

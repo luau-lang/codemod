@@ -190,7 +190,38 @@ local function extractStatementTrivia(statement: luau.AstStat, triviaDeposit)
 	table.insert(triviaDeposit, statementTrailingTrivia)
 end
 
+--[[
+	This function handles trivia reassignment of a filter variable statement (declaration, initialization, or assignment)
+
+	It ensures the final variables and final value do not have a separator (comma, etc), are properly spaced, and preserve the original trailing trivia of the full statement.
+	
+	@param varsToKeep - The filtered AST variable nodes that are not being removed
+	@param valsToKeep - The filtered AST value nodes that are not being removed
+	@param statementTrailingTrivia - the trailing trivia of the original statement
+]]
+local function handleVariableStatementTrivia(
+	varsToKeep: { luau.AstNode },
+	valsToKeep: { luau.AstNode },
+	statementTrailingTrivia: luau.AstNode
+)
+	-- Note: this function is only useful if we remove the original last variable in the statement, otherwise it's trivia will already be correct
+	local hasValues = #valsToKeep > 0
+	if varsToKeep[#varsToKeep].separator then
+		if hasValues then
+			varsToKeep[#varsToKeep].separator.text = ""
+		else
+			varsToKeep[#varsToKeep].separator = nil
+			varsToKeep[#varsToKeep].node.name.trailingTrivia = statementTrailingTrivia
+		end
+	end
+	if hasValues then
+		valsToKeep[#valsToKeep].separator = nil
+		valsToKeep[#valsToKeep].node.trailingTrivia = statementTrailingTrivia
+	end
+end
+
 return {
 	extractStatementTrivia = extractStatementTrivia,
 	handleLeadingTriviaInsertion = handleLeadingTriviaInsertion,
+	handleVariableStatementTrivia = handleVariableStatementTrivia,
 }
