@@ -13,7 +13,7 @@ local printer = require("@batteries/syntax/printer")
 local findVariables = require("../findVariablesUtils").findVariables
 local deleteVariables = require("../deleteVariables")
 local testCases = require("./deleteVariablesTestCases")
-local normalizeString = require("./testHelpers").normalizeString
+local normalizeString = require("../helpers/testHelpers").normalizeString
 
 --[[
     Tests the deleteVariables functionality for a single test case.

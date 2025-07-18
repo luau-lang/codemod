@@ -1,7 +1,7 @@
 local luau = require("@lute/luau")
 
 local visitor = require("@batteries/syntax/visitor")
-local printTable = require("./tests/testHelpers").printTable
+local printTable = require("./helpers/testHelpers").printTable
 
 export type scope = {
 	[string]: luau.AstExpr,
