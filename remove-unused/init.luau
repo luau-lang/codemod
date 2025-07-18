@@ -54,12 +54,13 @@ local function transform(ctx: codemod.Context<Options>)
 	local block = result.root
 
 	if not excludeFile(ctx.path, seleneExclude) then
-		local numDeletions = 1
+		local numDeletions, removalExceptions = 1, 0
 		local _vars, deletions
 		while numDeletions > 0 do
 			_vars, deletions, numDeletions = findVariables(block)
+			numDeletions -= removalExceptions
 			if numDeletions > 0 then
-				block = deleteVariables(block, deletions)
+				block, removalExceptions = deleteVariables(block, deletions)
 			end
 		end
 	end

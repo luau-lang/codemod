@@ -184,17 +184,29 @@ local testCases = {
 
     ]], -- should all be removed
 
-	-- Declaration of n vars to <n val (all vars should be kept since removal is not safe)
+	-- Declaration of n vars to <n val, but all vars are unused
 	[ [[
         local function two()
             return 1, 2
         end
         local x, y = two()
     ]] ] = [[
+    
+     ]],
+
+	-- Declaration of n vars to <n val, but some vars are used
+	[ [[
         local function two()
             return 1, 2
         end
         local x, y = two()
+        print(x)
+    ]] ] = [[
+        local function two()
+            return 1, 2
+        end
+        local x, y = two()
+        print(x)
      ]],
 
 	-- edge case: global function is used before it is defined; still needs to be picked up as use

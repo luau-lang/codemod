@@ -8,6 +8,8 @@ local handleVariableStatementTrivia = triviaHelpers.handleVariableStatementTrivi
 
 type deletionStore = findVariablesUtils.deletionStore
 
+local removalExceptions = 0 -- used for tracking number of variables in statements where #vars < #vals
+
 --[[
 	Determines if we should keep all variables for early return in `filterVariablesAndValues`.
 	
@@ -27,12 +29,15 @@ local function keepAllVariables(varsToKeep, valsToKeep, varStatement, hasValues)
 	end
 
 	-- don't support deleting from statements where we assign multiple vars via a function call (unless all vars are unused AKA varsToKeep is empty)
+	-- vars used in these circumstances are considered removal exceptions
 	if
 		#varsToKeep > 0
 		and #varsToKeep < #varStatement.variables
 		and hasValues
 		and #varStatement.values < #varStatement.variables
 	then
+		removalExceptions += #varStatement.variables - #varsToKeep
+		-- the exceptions are the nodes marked for deletion, so # of original variables - #varsToKeep
 		return true
 	end
 
@@ -92,6 +97,7 @@ local function handleVariableStatement(varStatement: luau.AstStatLocal, deletion
 end
 
 local function deleteVariables(block: luau.AstStatBlock, deletions: deletionStore)
+	removalExceptions = 0
 	local removalsVisitor = visitor.createVisitor()
 
 	removalsVisitor.visitBlockEnd = function(block: luau.AstStatBlock)
@@ -133,7 +139,7 @@ local function deleteVariables(block: luau.AstStatBlock, deletions: deletionStor
 
 	visitor.visitBlock(block, removalsVisitor)
 
-	return block
+	return block, removalExceptions
 end
 
 return deleteVariables

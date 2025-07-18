@@ -12,7 +12,7 @@ export type variableStore = {
 }
 
 export type deletionStore = {
-	[luau.AstExpr]: number,
+	[luau.AstExpr]: boolean,
 }
 
 export type globalStore = { -- map global func name to AST node
@@ -36,12 +36,7 @@ local function handleVarDeclaration(nodeVars, nodeValues, variables: variableSto
 		for _, v in nodeVars do
 			if v.node then
 				if not excludeVarName(v.node.name.text) then
-					-- we do want to consider it a use when we are assigning multiple vals to a singular val, bc removing one while others are used may break things
-					if #nodeValues > 0 and #nodeVars > #nodeValues then
-						variables[v.node] = 1
-					else
-						variables[v.node] = 0
-					end
+					variables[v.node] = 0
 					scopeStack[#scopeStack][v.node.name.text] = v.node
 				end
 			end
@@ -54,10 +49,7 @@ local function handleAssign(assignedVars, assignedVals, variables: variableStore
 		for _, v in assignedVars do
 			if v.node then
 				if variables[v.node["local"]] then
-					-- we do want to consider it a use when we are assigning multiple vals to a singular val, bc removing one while others are used may break things
-					if #assignedVars <= #assignedVals then
-						variables[v.node["local"]] -= 1
-					end
+					variables[v.node["local"]] -= 1
 				end
 			end
 		end

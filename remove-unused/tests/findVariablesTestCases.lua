@@ -281,19 +281,6 @@ local testCases = {
 		["x_0"] = 1,
 	},
 
-	-- edge sort of case: multiple vars to one value (we don't want to touch these bc will inevitably break code if we do)
-	[ [[
-        local function z()
-            return 1, 2, 3
-        end
-        local a, b, c = z()
-    ]] ] = {
-		["z_0"] = 1,
-		["a_3"] = 1,
-		["b_3"] = 1,
-		["c_3"] = 1,
-	},
-
 	-- edge case: global function is used before it is defined; still needs to be picked up as use
 	[ [[
         local a = b()
