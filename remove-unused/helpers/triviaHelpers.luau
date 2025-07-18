@@ -136,7 +136,7 @@ local function getStatementTrailingTrivia(statement: luau.AstStat)
 	local trailingTrivia = {}
 
 	-- Handle statements with values (like assignments or declarations with values)
-	if statement.values then
+	if statement.values and #statement.values > 0 then
 		-- Get trivia from the last value in the statement
 		if statement.values[#statement.values].node.trailingTrivia then
 			-- Direct access for primitive values
