@@ -19,7 +19,18 @@ The remove-unused codemod performs the following operations:
 - Handles multiple variable declarations in a single statement
 - Respects selene linting exclusions
 - Properly maintains comments and code formatting
-- Handles edge cases like variables used in type declarations or string interpolations
+
+## Edge Cases
+
+The remove-unused codemod handles the following unique cases:
+
+- **Multiple Variables from Single Function Call**: When multiple variables are assigned from a single function call (e.g., `local a, b = func()`), the codemod will only remove unused variables if all variables are unused. This preserves the function call semantics and prevents breaking code.
+
+- **Variable assignments Are Not Uses**: When a variable is assigned a value but not used elsewhere (e.g., `x = 5`), the assignment itself is not considered a "use" of the variable, consistent with linting rules.
+
+- **Underscore-Prefixed Variables**: Variables that begin with an underscore (e.g., `_ignored`) are intentionally skipped, as the underscore prefix conventionally indicates intentional non-usage in Lua/Luau.
+
+- **Function Parameters**: Function parameters are not analyzed for usage, as having unused parameters is acceptable in many codebases and linting configurations.
 
 ## Usage
 
