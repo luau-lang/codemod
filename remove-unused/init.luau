@@ -2,11 +2,6 @@
     remove-unused codemod - Main Entry Point
     
     This codemod identifies and removes unused variables and functions from Lua/Luau code.
-    It works by:
-    1. Parsing the source code into an AST
-    2. Analyzing the AST to find unused variables and functions
-    3. Removing the unused items while preserving comments and formatting
-    4. Re-printing the modified AST back to source code
 
     The codemod supports integration with selene linting rules to respect
     file exclusions. It also handles iterative deletion in case removing some
@@ -44,12 +39,10 @@ local function initialize(ctx: codemod.InitializationContext<Options>)
 end
 
 --[[
-    Transform a source file by removing unused variables.
-    
     This function applies the following process:
     1. Parse the source code into an AST
     2. Check if the file is excluded by selene rules
-    3. Iteratively find and remove unused variables
+    3. Iteratively find and remove unused functions and variables
        (since removing some variables may make others unused)
     4. Print the modified AST back to source code
     
