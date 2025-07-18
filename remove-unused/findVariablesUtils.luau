@@ -1,38 +1,7 @@
 local luau = require("@lute/luau")
 
 local visitor = require("@batteries/syntax/visitor")
-
-local function printTable(table, indent: number, result: boolean?)
-	for k, v in pairs(table) do
-		local indentString = string.rep("  ", indent)
-		if not result then
-			if type(v) == "table" and not tostring(k):find("Trivia") then
-				print(indentString .. tostring(k) .. ": (table)")
-				printTable(v, indent + 1, false)
-			else
-				print(indentString .. tostring(k) .. ": " .. tostring(v))
-			end
-		else
-			if type(k) == "table" then
-				print(
-					indentString
-						.. tostring((k.name and (k.name.text or k.text)) or k)
-						.. ", line "
-						.. tostring(if k.name and k.name.position then k.name.position.line else "")
-						.. ": "
-						.. tostring(v)
-				)
-			else
-				print(
-					indentString
-						.. tostring((v.name and (v.name.text or v.text)) or v)
-						.. ", line "
-						.. tostring(if v.name and v.name.position then v.name.position.line else "")
-				)
-			end
-		end
-	end
-end
+local printTable = require("./tests/testHelpers").printTable
 
 export type scope = {
 	[string]: luau.AstExpr,

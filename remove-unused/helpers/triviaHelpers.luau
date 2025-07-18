@@ -1,16 +1,3 @@
---[[
-    Trivia Helpers Module
-    
-    This module provides utilities for handling trivia (comments and whitespace) in the AST.
-    When removing nodes from the AST, we need to ensure that associated comments
-    are preserved and properly attached to the remaining code.
-    
-    The module focuses on:
-    1. Extracting trivia from statements that will be removed
-    2. Inserting that trivia into appropriate locations in remaining statements
-    3. Maintaining proper formatting and comment preservation
-]]
-
 local luau = require("@lute/luau")
 
 --[[
@@ -45,9 +32,7 @@ local function insertLeadingTrivia(attachTo: luau.AstExpr, toInsert: { luau.AstE
 	return newTrivia
 end
 
---[[
-    Inserts trivia at the appropriate location in a statement.
-    
+--[[    
     This function is responsible for finding the right node within a statement
     to attach trivia to. Different statement types store their leading trivia
     in different places, so we need to handle each case separately.
@@ -106,9 +91,7 @@ local function handleLeadingTriviaInsertion(statement: luau.AstStat, triviaToIns
 	end
 end
 
---[[
-    Gets the leading trivia (comments and whitespace) for a statement.
-    
+--[[    
     This function extracts the leading trivia from a statement based on its type.
     It focuses on statement types that can be deleted by our unused variable removal.
     
@@ -124,9 +107,7 @@ local function getStatementLeadingTrivia(statement: luau.AstStat)
 		else nil
 end
 
---[[
-    Filters trailing trivia to keep only meaningful content.
-    
+--[[    
     This function examines trailing trivia and keeps it only if it contains
     actual comments. If the trivia only contains whitespace or newlines,
     it's considered non-essential and is filtered out.
@@ -135,18 +116,15 @@ end
     @return - The filtered trivia, or an empty table if no comments found
 ]]
 local function filterTrailingTrivia(trivia)
-	-- Only keep trailing trivia if it contains comments
 	for _, t in pairs(trivia) do
 		if t.tag == "comment" then
 			return trivia -- Keep all trivia if we found a comment
 		end
 	end
-	return {} -- Discard trivia that only contains whitespace
+	return {}
 end
 
---[[
-    Gets the trailing trivia (comments and whitespace) for a statement.
-    
+--[[    
     This function recursively extracts trailing trivia from a statement based on its type.
     Different statement types store their trailing trivia in different places,
     so we need specialized handling for each case.
@@ -193,13 +171,10 @@ local function getStatementTrailingTrivia(statement: luau.AstStat)
 		end
 	end
 
-	-- Filter out non-essential trailing trivia (like just newlines)
 	return filterTrailingTrivia(trailingTrivia)
 end
 
 --[[
-    Extracts both leading and trailing trivia from a statement.
-    
     This function collects all trivia (comments and whitespace) from a statement
     that is going to be removed, so that the trivia can be preserved and
     reattached to other statements.

@@ -239,8 +239,8 @@ local testCases = {
         print(a)
     ]],
 
-    -- appending preserved trivia to various statements
-    [ [[
+	-- appending preserved trivia to various statements
+	[ [[
         -- preserve me
         local a = 1 -- preserve me too
         export type t = { string }
@@ -262,7 +262,7 @@ local testCases = {
             return "nice"
         end
         print(b()) 
-    ]]
+    ]],
 }
 
 return testCases

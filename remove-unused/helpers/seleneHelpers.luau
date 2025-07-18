@@ -1,14 +1,4 @@
 --[[
-    Selene Integration Helper Module
-    
-    This module provides utilities for integrating with the selene linter configuration.
-    It allows the codemod to respect selene's file exclusion rules, ensuring that
-    files excluded from linting are also excluded from unused variable removal.
-]]
-
---[[
-    Extracts file exclusion patterns from selene.toml content.
-    
     This function parses a selene.toml file to extract the exclude patterns,
     which are typically specified in a format like:
     
@@ -39,8 +29,6 @@ local function getSeleneExclude(tomlContent): { string }
 end
 
 --[[
-    Checks if a file path matches any of the exclusion patterns.
-    
     This function tests if a given file path should be excluded based on
     the patterns from selene.toml. It converts gitignore-style patterns
     to Lua patterns for matching.

@@ -37,7 +37,7 @@ $ lute codemod/main.luau ./codemod/remove-unused --selene <path> <files...>
 
 The codemod uses a two-phase approach:
 
-1. **Usage Analysis**: 
+1. **Function and Variable Usage Analysis**: 
    - Traverses the AST to find all variable and function declarations
    - Tracks references to these items throughout the code
    - Builds a usage count for each variable and function
@@ -45,7 +45,7 @@ The codemod uses a two-phase approach:
 2. **Code Transformation**:
    - Removes completely unused variable and function declarations
    - For declarations with multiple variables, removes only the unused ones
-   - Preserves comments and formatting by carefully handling trivia nodes
+   - Preserves comments and formatting of removed statements by carefully handling trivia nodes
 
 ## Examples
 
