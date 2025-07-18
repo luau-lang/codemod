@@ -27,7 +27,12 @@ local function keepAllVariables(varsToKeep, valsToKeep, varStatement, hasValues)
 	end
 
 	-- don't support deleting from statements where we assign multiple vars via a function call (unless all vars are unused AKA varsToKeep is empty)
-	if #varsToKeep > 0 and #varsToKeep < #varStatement.variables and hasValues and #varStatement.values < #varStatement.variables then
+	if
+		#varsToKeep > 0
+		and #varsToKeep < #varStatement.variables
+		and hasValues
+		and #varStatement.values < #varStatement.variables
+	then
 		return true
 	end
 
@@ -57,6 +62,7 @@ local function filterVariablesAndValues(
 	local statementTrailingTrivia = if hasValues
 		then varStatement.values[#varStatement.values].node.trailingTrivia
 		else varStatement.variables[#varStatement.variables].node.name.trailingTrivia
+
 	for i = 1, #varStatement.variables do
 		local deletionsKey = if isAssign
 			then varStatement.variables[i].node["local"]
@@ -106,7 +112,7 @@ local function deleteVariables(block: luau.AstStatBlock, deletions: deletionStor
 					continue
 				end
 				local newVars, newVals
-				 -- get filtered statement variables and values
+				-- get filtered statement variables and values
 				newVars, newVals = handleVariableStatement(statement, deletions, statement.tag == "assign")
 				if #newVars == 0 then -- if deleting all vars
 					extractStatementTrivia(statement, removedTrivia)
