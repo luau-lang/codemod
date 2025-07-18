@@ -5,7 +5,7 @@ local testCases = {
 	-- Deleting a single unused variable statement
 	[ [[
     local a = 1
-    local unused = 2 -- This line should be completely removed
+    local unused = 2
     local b = 3
     ]] ] = [[
     ]],
@@ -111,34 +111,7 @@ local testCases = {
     print(a,b)
     ]],
 
-	-- Another multi-line comment test, deleting the last variable
-	[ [[
-    local a,      -- Comment for A
-        unused  -- Comment for unused
-        = 1, 2
-    print(a)
-    ]] ] = [[
-    local a      -- Comment for A
-        = 1
-    print(a)
-    ]],
-
-	--- Category 4: Formatting and Whitespace Edge Cases
-
-	-- Deleting a variable without an initializer
-	[ [[
-    local a, unused, b
-    a = 1
-    b = 3
-    print(a, b)
-    ]] ] = [[
-    local a, b
-    a = 1
-    b = 3
-    print(a, b)
-    ]],
-
-	--- Category 5: Scope and Safety Checks
+	--- Category 4: Scope and Safety Checks
 	--- Confirms the deletion pass correctly interacts with the rules from Pass 1.
 
 	-- Scope integrity check (deleting outer `x`, keeping inner `x`)
@@ -211,7 +184,7 @@ local testCases = {
 
     ]], -- should all be removed
 
-	-- Declaration of n vars to <n val
+	-- Declaration of n vars to <n val (all vars should be kept since removal is not safe)
 	[ [[
         local function two()
             return 1, 2

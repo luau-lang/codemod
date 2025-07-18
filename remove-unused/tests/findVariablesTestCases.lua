@@ -16,21 +16,18 @@ local testCases = {
     ]] ] = { ["usedVar_0"] = 1 },
 
 	-- Variable Used in Simple Assignment (User's Rule: assign-to does not increment)
-	-- 'x = 2' uses '2' but not 'x' as a read.
 	[ [[
         local x = 1
         x = 2
     ]] ] = { ["x_0"] = 0 },
 
 	-- Variable Used in Compound Assignment (Linter's Rule: *is* a use)
-	-- 'y += 10' uses 'y' (reads and writes it).
 	[ [[
         local y = 5
         y += 10
     ]] ] = { ["y_0"] = 1 },
 
 	-- Variable Used in Expression and Simple Assignment
-	-- 'a = z' uses 'z' as a read. 'z = 2' uses '2' but not 'z' as a read.
 	[ [[
         local z = 1
         local a = z
@@ -38,7 +35,6 @@ local testCases = {
     ]] ] = { ["z_0"] = 1, ["a_1"] = 0 },
 
 	-- Function Parameter Used (NOT tracked for removal by linter's rule)
-	-- 'param' is used in 'print(param)' but not counted for removal.
 	[ [[
         local function foo(param)
             print(param)
@@ -47,7 +43,6 @@ local testCases = {
     ]] ] = { ["foo_0"] = 1 }, -- Only 'foo' (the function itself) is tracked and used
 
 	-- Function Parameter Unused (NOT tracked for removal by linter's rule)
-	-- 'unusedParam' is not used, but is a parameter, so not tracked. 'temp' is unused and tracked.
 	[ [[
         local function bar(unusedParam)
             local temp = 1
@@ -56,7 +51,6 @@ local testCases = {
     ]] ] = { ["temp_1"] = 0, ["bar_0"] = 1 },
 
 	-- Nested Scope & Shadowing
-	-- 'x_outer' and 'x_inner' are distinct variables, each used once in their respective scopes.
 	[ [[
         local x = 1 -- line 0
         local function nested() -- line 1
@@ -67,7 +61,6 @@ local testCases = {
     ]] ] = { ["x_0"] = 0, ["x_2"] = 1, ["nested_1"] = 1 },
 
 	-- `do..end` Block Scope
-	-- 'b' is local to the 'do' block, 'a' is outside. Both are used.
 	[ [[
         local a = 1 -- line 0
         do -- line 1
@@ -78,7 +71,6 @@ local testCases = {
     ]] ] = { ["a_0"] = 1, ["b_2"] = 1 },
 
 	-- `for` Numeric Loop Variable (NOT tracked for removal by linter's rule)
-	-- 'i' is used, but not tracked. 'total' is tracked and used.
 	[ [[
         local total = 0 -- line 0
         for i = 1, 5 do -- line 1
@@ -87,7 +79,6 @@ local testCases = {
     ]] ] = { ["total_0"] = 1 },
 
 	-- `for in` Loop Variables (NOT tracked for removal by linter's rule)
-	-- 'key' and 'val' are used, but not tracked. 'data' is tracked and used.
 	[ [[
         local data = {a=1, b=2} -- line 0
         for key, val in pairs(data) do -- line 1
@@ -96,7 +87,6 @@ local testCases = {
     ]] ] = { ["data_0"] = 1 },
 
 	-- Interpolated String Reference
-	-- 'name' is referenced inside the interpolated string.
 	[ [[
         local name = "Alice" -- line 0
         print(`Hello, {name}!`) -- line 1
@@ -120,14 +110,12 @@ local testCases = {
 	-- I'm not sure how to define this syntax without actual requires...
 
 	-- Underscore `_` Variable (NOT tracked for removal by linter's rule)
-	-- '_' is explicitly not tracked for removal. 'value' is used.
 	[ [[
         local _, value = 1, 2 -- line 0
         print(value) -- line 1
     ]] ] = { ["value_0"] = 1 },
 
 	-- Multiple Uses of a Variable
-	-- 'counter' is used in `counter + 1` (read) and `print(counter)` (read).
 	[ [[
         local counter = 0 -- line 0
         counter = counter + 1 -- line 1
@@ -135,14 +123,12 @@ local testCases = {
     ]] ] = { ["counter_0"] = 2 },
 
 	-- Variable with No References (but complex initialization)
-	-- 'complex' is used in 'unused = complex' (read). 'unused' is unused.
 	[ [[
         local complex = (1 + 2) * 3 -- line 0
         local unused = complex -- line 1
     ]] ] = { ["complex_0"] = 1, ["unused_1"] = 0 },
 
 	-- Nested Anonymous Function (closure over 'x')
-	-- 'run' is used to call the outer function. 'x' is closed over and used by the inner function.
 	[ [[
         local run = function() -- line 0
             local x = 1 -- line 1
@@ -152,8 +138,6 @@ local testCases = {
     ]] ] = { ["run_0"] = 1, ["x_1"] = 1 },
 
 	-- Variables with identical names in different scopes (distinct AstLocal objects)
-	-- 'a' is unused. 'fn1' and 'fn2' are functions, each called once.
-	-- Each 'b' is local to its function, and each is used once.
 	[ [[
         local a = 1 -- line 0
         local function fn1() -- line 1
@@ -167,13 +151,8 @@ local testCases = {
         fn1() -- line 9
         fn2() -- line 10
     ]] ] = { ["a_0"] = 0, ["fn1_1"] = 1, ["b_2"] = 1, ["fn2_5"] = 1, ["b_6"] = 1 },
-	-- Note: For the 'b' variables, your 'variableInfo' map will correctly distinguish them by their
-	-- unique AstLocal pointer. This output format ('b_2', 'b_6') explicitly shows that distinct
-	-- variables are expected to be counted, even if their names are the same.
 
 	-- Variables used in table literals/access
-	-- 'myTable' is used in declaration, 'myTable.field = 10', 'val = myTable.field', and 'print(myTable.field)'.
-	-- 'val' is unused (as its only reference is an assignment target).
 	[ [[
         local myTable = { ["test"] = 1 } -- line 0
         myTable.field = 10 -- line 1
@@ -184,7 +163,6 @@ local testCases = {
     ]] ] = { ["myTable_0"] = 4, ["val_2"] = 0, ["t_4"] = 1 },
 
 	-- Complex expression with multiple local references
-	-- 'a', 'b', and 'result' are all used once.
 	[ [[
         local a = 10 -- line 0
         local b = 20 -- line 1
@@ -193,14 +171,12 @@ local testCases = {
     ]] ] = { ["a_0"] = 1, ["b_1"] = 1, ["res_2"] = 1 },
 
 	-- Multiple Declarations on One Line with Mixed Usage
-	-- 'b_0' is unused, 'a_0' and 'c_0' are used.
 	[ [[
         local a, b, c = 1, 2, 3 -- line 0
         print(a, c) -- line 1
     ]] ] = { ["a_0"] = 1, ["b_0"] = 0, ["c_0"] = 1 },
 
 	-- Recursive Function Calls (self-reference)
-	-- 'fib_0' should be counted for its declaration and each recursive call.
 	[ [[
         local function fib(n) -- line 0
             if n < 2 then return n end -- line 1
@@ -210,8 +186,6 @@ local testCases = {
     ]] ] = { ["fib_0"] = 3 }, -- 1 for initial call, 2 for recursive calls
 
 	-- Local References in Table Constructor Keys and Values
-	-- 'key_name_0' is used as a computed key and as a field value.
-	-- 'val_data_0' is used as a field value.
 	[ [[
         local key_name = "test" -- line 0
         local val_data = 10 -- line 1
@@ -220,7 +194,6 @@ local testCases = {
     ]] ] = { ["key_name_0"] = 2, ["val_data_1"] = 1, ["t_2"] = 1 },
 
 	-- Local variable within an 'if' expression branch that gets assigned to another local
-	-- 'inner_x_2' is used only within its branch, 'outer_y_1' captures the result.
 	[ [[
         local cond = true -- line 0
         local outer_y = if cond then -- line 1
@@ -236,7 +209,6 @@ local testCases = {
     ]] ] = { ["cond_0"] = 1, ["outer_y_1"] = 1, ["inner_x_3"] = 1 },
 
 	-- Upvalue used in nested function where inner function is returned
-	-- 'upvalue_var_0' is used in the inner_func, 'outer_func_1' and 'inner_func_3' are also locals.
 	[ [[
         local upvalue_var = "hello" -- line 0
         local function outer_func() -- line 1
@@ -309,7 +281,7 @@ local testCases = {
 		["x_0"] = 1,
 	},
 
-	-- edge sort of case: multiple varss to one value (we don't want to touch these bc will inevitably break code if we do)
+	-- edge sort of case: multiple vars to one value (we don't want to touch these bc will inevitably break code if we do)
 	[ [[
         local function z()
             return 1, 2, 3
@@ -332,33 +304,6 @@ local testCases = {
 		["a_0"] = 0,
 		["b_1"] = 1,
 	},
-
-	--[[
-        the only part of findVariables that uses the scopeStack is the visitTypeReference
-        this would be a case where we have something like:
-
-            local m = 1
-            local function x()
-                local m = require("../test")
-                local n: m.testType = { "l" = 1 } 
-            end
-
-        in this case, we want m_2 (defined on line 2) to have 1 use, while m_0 should have 0
-        hmmm how can i get requires to work in these test cases....
-    ]]
-
-	--[[ 
-        the following is an edge case I'm not yet sure how to handle:
-        local types = require(...)
-        local function func()
-	        local types = 1
-	        local h: types.testType = { ['a'] = 1 } -- refers to types on line 0, but current implementation will count it as use for types on the line just above
-        end
-        hmmmm, this is tricky bc outside of these type sort of cases (using var with same name in nested scope as an outer-scope var that exports type), the interpreter will use the nearest in scope var for logic
-        can save as a challenge for later
-    ]]
-
-	-- To-Do: remove redundant test cases
 }
 
 return testCases

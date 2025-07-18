@@ -15,16 +15,14 @@ local deleteVariables = require("../deleteVariables")
 local testCases = require("./deleteVariablesTestCases")
 local normalizeString = require("../helpers/testHelpers").normalizeString
 
---[[
-    Tests the deleteVariables functionality for a single test case.
-    
-    This function performs a complete unused variable removal process:
+--[[    
+    This function performs a complete removal process for a single test case:
     1. Parse the input code
-    2. Iteratively find and remove unused variables until none remain
+    2. Iteratively find and remove unused functions/variables until none remain
     3. Verify the final output matches the expected output
     
     @param block The input Lua/Luau code block to process
-    @param expectedOutput The expected code after removing unused variables
+    @param expectedOutput The expected code after removing unused functions/variables
     @throws Assertion error if outputs don't match
 ]]
 local function test_deleteVariables(block, expectedOutput)
