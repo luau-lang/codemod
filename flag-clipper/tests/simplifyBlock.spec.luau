@@ -309,6 +309,22 @@ local function test_simplifyConditionalEarlyReturn()
 	assert(apply(source) == expected)
 end
 
+local function test_dontSimplifyAssignmentIfVariableIsPresentOnRHS()
+	local source = [[
+		local variable = true
+		if game:GetFastFlag("FlagName") then
+			variable = apply(variable)
+		end
+	]]
+
+	local expected = [[
+		local variable = true
+			variable = apply(variable)
+	]]
+
+	assert(apply(source, "FlagName", true) == expected)
+end
+
 local function test_simplifyReturn()
 	assert(apply('return game:GetFastFlag("FlagName")', "FlagName", true) == "return true")
 	assert(apply('return not game:GetFastFlag("FlagName")', "FlagName", true) == "return false")
@@ -340,6 +356,7 @@ return function()
 		test_simplifyReassignment(repo)
 	end
 	test_simplifyConditionalEarlyReturn()
+	test_dontSimplifyAssignmentIfVariableIsPresentOnRHS()
 	test_simplifyReturn()
 	test_simplifyReturnFlagFalse()
 end
