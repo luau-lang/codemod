@@ -1,5 +1,16 @@
 local luau = require("@lute/luau")
 
+local function attachTriviaInOrder(attachTo, toAttach)
+	while #toAttach > 0 do
+		local trivia = table.remove(toAttach, 1)
+		for _, token in pairs(trivia) do
+			-- Normalize whitespace but preserve comments exactly
+			token.text = if token.tag == "whitespace" then token.text:gsub("[ \t]+", "") else token.text
+			table.insert(attachTo, token)
+		end
+	end
+end
+
 --[[
     Inserts trivia at the beginning of a node's leading trivia.
     
@@ -15,14 +26,7 @@ local function insertLeadingTrivia(attachTo: luau.AstExpr, toInsert: { luau.AstE
 	local newTrivia = {}
 
 	-- Process each trivia node to insert
-	while #toInsert > 0 do
-		local trivia = table.remove(toInsert, 1)
-		for _, token in pairs(trivia) do
-			-- Normalize whitespace but preserve comments exactly
-			token.text = if token.tag == "whitespace" then token.text:gsub("[ \t]+", "") else token.text
-			table.insert(newTrivia, token)
-		end
-	end
+	attachTriviaInOrder(newTrivia, toInsert)
 
 	-- Append the node's existing leading trivia
 	for _, trivia in attachTo.leadingTrivia do
@@ -30,6 +34,10 @@ local function insertLeadingTrivia(attachTo: luau.AstExpr, toInsert: { luau.AstE
 	end
 
 	return newTrivia
+end
+
+local function appendTrailingTrivia(attachTo: luau.AstExpr, toAppend: { luau.AstExpr })
+	attachTriviaInOrder(attachTo, toAppend)
 end
 
 --[[    
@@ -125,14 +133,15 @@ local function filterTrailingTrivia(trivia)
 end
 
 --[[    
-    This function recursively extracts trailing trivia from a statement based on its type.
+    This function recursively finds or appends trailing trivia of/to a statement based on its type.
     Different statement types store their trailing trivia in different places,
     so we need specialized handling for each case.
     
     @param statement - The AST statement to extract trailing trivia from
+	@param toInsert - OPTIONAL trivia to append to the found trailing triva
     @return - The trailing trivia of the statement
 ]]
-local function getStatementTrailingTrivia(statement: luau.AstStat)
+local function getStatementTrailingTrivia(statement: luau.AstStat, toAppend: { luau.AstExpr }?)
 	local trailingTrivia = {}
 
 	-- Handle statements with values (like assignments or declarations with values)
@@ -140,34 +149,66 @@ local function getStatementTrailingTrivia(statement: luau.AstStat)
 		-- Get trivia from the last value in the statement
 		if statement.values[#statement.values].node.trailingTrivia then
 			-- Direct access for primitive values
-			trailingTrivia = statement.values[#statement.values].node.trailingTrivia
+			if toAppend then
+				appendTrailingTrivia(statement.values[#statement.values].node.trailingTrivia, toAppend)
+			else
+				trailingTrivia = statement.values[#statement.values].node.trailingTrivia
+			end
 		elseif statement.values[#statement.values].node.tag == "local" then
 			-- Special handling for local variable references
-			trailingTrivia = statement.values[#statement.values].node.token.trailingTrivia
+			if toAppend then
+				appendTrailingTrivia(statement.values[#statement.values].node.token.trailingTrivia, toAppend)
+			else
+				trailingTrivia = statement.values[#statement.values].node.token.trailingTrivia
+			end
 		else
 			-- Recursive handling for complex expressions
-			trailingTrivia = getStatementTrailingTrivia(statement.values[#statement.values].node)
+			trailingTrivia = getStatementTrailingTrivia(statement.values[#statement.values].node, toAppend)
 		end
 	else
 		-- Handle different statement types without values
 		if statement.tag == "table" then
 			-- Table literals - trivia is on the closing brace
-			trailingTrivia = statement.closeBrace.trailingTrivia
+			if toAppend then
+				appendTrailingTrivia(statement.closeBrace.trailingTrivia, toAppend)
+			else
+				trailingTrivia = statement.closeBrace.trailingTrivia
+			end
 		elseif statement.tag == "index" then
 			-- Index expressions - trivia is on the closing brackets
-			trailingTrivia = statement.closeBrackets.trailingTrivia
+			if toAppend then
+				appendTrailingTrivia(statement.closeBrackets.trailingTrivia, toAppend)
+			else
+				trailingTrivia = statement.closeBrackets.trailingTrivia
+			end
 		elseif statement.tag == "indexname" then
 			-- Named index expressions - trivia is on the index
-			trailingTrivia = statement.index.trailingTrivia
+			if toAppend then
+				appendTrailingTrivia(statement.index.trailingTrivia, toAppend)
+			else
+				trailingTrivia = statement.index.trailingTrivia
+			end
 		elseif statement.tag == "call" then
 			-- Function calls - trivia is on the closing parenthesis
-			trailingTrivia = statement.closeParens.trailingTrivia
+			if toAppend then
+				appendTrailingTrivia(statement.closeParens.trailingTrivia, toAppend)
+			else
+				trailingTrivia = statement.closeParens.trailingTrivia
+			end
 		elseif statement.tag == "local" then
 			-- Local declarations - trivia is on the last variable's name
-			trailingTrivia = statement.variables[#statement.variables].node.name.trailingTrivia
+			if toAppend then
+				appendTrailingTrivia(statement.variables[#statement.variables].node.name.trailingTrivia, toAppend)
+			else
+				trailingTrivia = statement.variables[#statement.variables].node.name.trailingTrivia
+			end
 		elseif statement.tag == "localfunction" or statement.tag == "function" then
 			-- Function declarations - trivia is on the end keyword
-			trailingTrivia = statement.body.endKeyword.trailingTrivia
+			if toAppend then
+				appendTrailingTrivia(statement.body.endKeyword.trailingTrivia, toAppend)
+			else
+				trailingTrivia = statement.body.endKeyword.trailingTrivia
+			end
 		end
 	end
 
@@ -220,8 +261,18 @@ local function handleVariableStatementTrivia(
 	end
 end
 
+local function handleLeftoverTrivia(triviaToAppend: { luau.AstNode }, lastKeptStatement: luau.AstStat)
+	if #triviaToAppend == 0 or not lastKeptStatement then
+		return
+	end
+
+	-- append trivia in triviaToAppend to lastKeptStatement's trailingTrivia
+	getStatementTrailingTrivia(lastKeptStatement, triviaToAppend)
+end
+
 return {
 	extractStatementTrivia = extractStatementTrivia,
 	handleLeadingTriviaInsertion = handleLeadingTriviaInsertion,
 	handleVariableStatementTrivia = handleVariableStatementTrivia,
+	handleLeftoverTrivia = handleLeftoverTrivia,
 }

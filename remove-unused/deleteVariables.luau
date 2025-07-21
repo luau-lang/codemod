@@ -5,6 +5,7 @@ local triviaHelpers = require("./helpers/triviaHelpers")
 local handleLeadingTriviaInsertion = triviaHelpers.handleLeadingTriviaInsertion
 local extractStatementTrivia = triviaHelpers.extractStatementTrivia
 local handleVariableStatementTrivia = triviaHelpers.handleVariableStatementTrivia
+local handleLeftoverTrivia = triviaHelpers.handleLeftoverTrivia
 
 type deletionStore = findVariablesUtils.deletionStore
 
@@ -103,9 +104,11 @@ local function deleteVariables(block: luau.AstStatBlock, deletions: deletionStor
 	local removalsVisitor = visitor.createVisitor()
 
 	removalsVisitor.visitBlockEnd = function(block: luau.AstStatBlock)
-		local filteredStatements = {} -- for each deleted statement, we store it's trivia
+		local filteredStatements = {}
 
-		local removedTrivia = {} -- used to store trivia of removed statements so we can preserve it
+		local removedTrivia = {} -- store trivia of removed statements so we can preserve it
+
+		local priorKeptStatement = nil -- store most recently kept statement; if we have leftover removedTrivia after full block traversal, we can append to this statement
 
 		for _, statement in block.statements do
 			-- function removal is straightforward, we just omit the entire statement from filteredStatements
@@ -132,8 +135,11 @@ local function deleteVariables(block: luau.AstStatBlock, deletions: deletionStor
 				-- insert the leading trivia from previously removed statements to statement we are keeping
 				handleLeadingTriviaInsertion(statement, removedTrivia)
 			end
+			priorKeptStatement = statement
 			table.insert(filteredStatements, statement)
 		end
+
+		handleLeftoverTrivia(removedTrivia, priorKeptStatement)
 
 		block.statements = filteredStatements
 	end
