@@ -11,9 +11,7 @@ type deletionStore = findVariablesUtils.deletionStore
 local removalExceptions = 0 -- used for tracking number of variables in statements where #vars < #vals
 
 --[[
-	Determines if we should keep all variables for early return in `filterVariablesAndValues`.
-	
-	True if:
+	Determines if we should keep all variables in a given statement. True if:
 	- We are keeping the same number of variables as the statement originally had (we are not removing anything)
 	- We have removed variables from a statement where multiple variables are assigned to a single function call. This will break code
 	
@@ -21,7 +19,7 @@ local removalExceptions = 0 -- used for tracking number of variables in statemen
 	@param valsToKeep - The filtered vaues
 	@param varStatement - The original statement
 	@param hasValues - True if the original statement had values (was initialization or assignment)
-	@return boolean, true if we are keeping the statement as it originally was, false otherwise
+	@return true if we are keeping the statement as it originally was, false otherwise
 ]]
 local function keepAllVariables(varsToKeep, valsToKeep, varStatement, hasValues): boolean
 	if #varsToKeep == #varStatement.variables then
@@ -102,7 +100,6 @@ local function deleteVariables(block: luau.AstStatBlock, deletions: deletionStor
 
 	removalsVisitor.visitBlockEnd = function(block: luau.AstStatBlock)
 		local filteredStatements = {} -- for each deleted statement, we store it's trivia
-		-- whenever we come across a statement we are keeping, we append all the leading trivia in our store to the statement's existing leading trivia
 
 		local removedTrivia = {} -- used to store trivia of removed statements so we can preserve it
 
@@ -113,7 +110,7 @@ local function deleteVariables(block: luau.AstStatBlock, deletions: deletionStor
 					extractStatementTrivia(statement, removedTrivia)
 					continue
 				end
-			elseif statement.tag == "local" or statement.tag == "assign" then -- cheeky edge case! bc we don't consider assignments a use, we need to remove assignments of unused variables
+			elseif statement.tag == "local" or statement.tag == "assign" then
 				if #statement.variables == 0 then
 					continue
 				end
