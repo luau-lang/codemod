@@ -3,7 +3,7 @@ local findVariablesUtils = require("./findVariablesUtils")
 local visitor = require("@batteries/syntax/visitor")
 local triviaHelpers = require("./helpers/triviaHelpers")
 local handleLeadingTriviaInsertion = triviaHelpers.handleLeadingTriviaInsertion
-local extractStatementTrivia = triviaHelpers.extractStatementTrivia
+local storeStatementTrivia = triviaHelpers.storeStatementTrivia
 local handleVariableStatementTrivia = triviaHelpers.handleVariableStatementTrivia
 local handleLeftoverTrivia = triviaHelpers.handleLeftoverTrivia
 
@@ -114,7 +114,7 @@ local function deleteVariables(block: luau.AstStatBlock, deletions: deletionStor
 			-- function removal is straightforward, we just omit the entire statement from filteredStatements
 			if statement.tag == "localfunction" or statement.tag == "function" then
 				if deletions[statement.name] then
-					extractStatementTrivia(statement, removedTrivia)
+					storeStatementTrivia(statement, removedTrivia)
 					continue
 				end
 			elseif statement.tag == "local" or statement.tag == "assign" then
@@ -125,7 +125,7 @@ local function deleteVariables(block: luau.AstStatBlock, deletions: deletionStor
 				-- get filtered statement variables and values
 				newVars, newVals = handleVariableStatement(statement, deletions, statement.tag == "assign")
 				if #newVars == 0 then -- if deleting all vars
-					extractStatementTrivia(statement, removedTrivia)
+					storeStatementTrivia(statement, removedTrivia)
 					continue
 				end
 				statement.variables = newVars
