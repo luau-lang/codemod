@@ -81,6 +81,8 @@ end
 	@param variables - Store tracking variable usage counts
 ]]
 local function handleVarReference(node: luau.AstStatLocal, variables: variableStore)
+	-- Local references store the original variable declaration in the 'local' field
+	-- This allows us to match the reference with its declaration
 	if variables[node["local"]] then
 		variables[node["local"]] += 1
 	end
@@ -134,10 +136,6 @@ local function findVariables(block: luau.AstStatBlock)
 		table.remove(scopeStack, #scopeStack) -- Pop current scope from stack
 	end
 
-	--[[
-		Processes local variable declarations.
-		Registers variables in the store and current scope.
-	]]
 	getVarsVisitor.visitLocalDeclaration = function(expression: luau.AstStatLocal)
 		handleVarDeclaration(expression.variables, variables, scopeStack)
 		return true
@@ -161,6 +159,8 @@ local function findVariables(block: luau.AstStatBlock)
 	--[[
 		Processes global function definitions.
 		Handles special case for global functions since they can be used before definition.
+		We use the function name (string, not AST node name) to index into globals.
+		When we find the function declaration, we then store the actual AST node reference.
 	]]
 	getVarsVisitor.visitFunction = function(expression: luau.AstStatLocalFunction)
 		if expression.name.name then
@@ -182,13 +182,7 @@ local function findVariables(block: luau.AstStatBlock)
 		return true
 	end
 
-	--[[
-		Processes references to local variables.
-		Increments usage count for the referenced variable.
-	]]
 	getVarsVisitor.visitLocalReference = function(expression: luau.AstExprLocal)
-		-- Local references store the original variable declaration in the 'local' field
-		-- This allows us to match the reference with its declaration
 		handleVarReference(expression, variables)
 		return true
 	end
@@ -223,8 +217,9 @@ local function findVariables(block: luau.AstStatBlock)
 	--[[
 		Processes type references which may refer to variables.
 		Searches the scope stack for variables used in type expressions.
-		
-		For example, in code like `local x: SomeType`, the variable SomeType would be referenced.
+		For example, in code like `local x: SomeTypeExportingModule.SomeType`, the variable SomeTypeExportingModule would be referenced.
+		The AST node accessed by visitTypeReference has no access to the "local" references we use as keys in our variable store,
+		Thus, we search the scope stack to find the appropriate variable reference 
 	]]
 	getVarsVisitor.visitTypeReference = function(expression: luau.AstTypeReference)
 		if expression.prefix then
@@ -233,17 +228,7 @@ local function findVariables(block: luau.AstStatBlock)
 		end
 		return true
 	end
-	--[[
-		Note: For contexts like `local typeTable = {...}, local x: typeTable.type`, 
-		visitTypeReference has no direct pointer to typeTable. We handle this by searching
-		through the scope stack to find the variable by name.
-	]]
 
-	--[[
-		Processes assignment statements.
-		Adjusts usage counts for variables being assigned to, as our linters
-		don't consider assignment itself to be a valid usage of a variable.
-	]]
 	getVarsVisitor.visitAssign = function(expression: luau.AstStatAssign)
 		handleAssign(expression.variables, expression.values, variables)
 		return true

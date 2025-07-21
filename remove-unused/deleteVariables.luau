@@ -8,7 +8,12 @@ local handleVariableStatementTrivia = triviaHelpers.handleVariableStatementTrivi
 
 type deletionStore = findVariablesUtils.deletionStore
 
-local removalExceptions = 0 -- used for tracking number of variables in statements where #vars < #vals
+--[[
+	Variable used to track edge cases where variable removal is prone to break logic.
+	i.e. local x, y = functionThatReturnsTwoValues()
+	If x or y is unused and we remove one of them, code will break
+]]
+local removalExceptions = 0
 
 --[[
 	Determines if we should keep all variables in a given statement. True if:
@@ -26,16 +31,15 @@ local function keepAllVariables(varsToKeep, valsToKeep, varStatement, hasValues)
 		return true
 	end
 
-	-- don't support deleting from statements where we assign multiple vars via a function call (unless all vars are unused AKA varsToKeep is empty)
-	-- vars used in these circumstances are considered removal exceptions
 	if
 		#varsToKeep > 0
 		and #varsToKeep < #varStatement.variables
 		and hasValues
 		and #varStatement.values < #varStatement.variables
 	then
+		-- don't support deleting from statements where we assign multiple vars via a function call (unless all vars are unused)
+		-- unused variables in such a statement are considered removal exceptions
 		removalExceptions += #varStatement.variables - #varsToKeep
-		-- the exceptions are the nodes marked for deletion, so # of original variables - #varsToKeep
 		return true
 	end
 
