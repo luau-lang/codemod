@@ -29,7 +29,7 @@ local testCases = {
         print("hello")
     end
 
-    
+
     keep_me()
     ]],
 
@@ -211,17 +211,21 @@ local testCases = {
 
 	-- edge case: global function is used before it is defined; still needs to be picked up as use
 	[ [[
-        local a = b()
+        local function a()
+            print(b())
+        end
         function b()
             return 1
         end
-        print(a)
+        a()
      ]] ] = [[
-        local a = b()
+        local function a()
+            print(b())
+        end
         function b()
             return 1
         end
-        print(a)
+        a()
     ]],
 
 	-- appending preserved trivia to various statements

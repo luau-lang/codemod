@@ -118,9 +118,6 @@ local function deleteVariables(block: luau.AstStatBlock, deletions: deletionStor
 					continue
 				end
 			elseif statement.tag == "local" or statement.tag == "assign" then
-				if #statement.variables == 0 then
-					continue
-				end
 				local newVars, newVals
 				-- get filtered statement variables and values
 				newVars, newVals = handleVariableStatement(statement, deletions, statement.tag == "assign")

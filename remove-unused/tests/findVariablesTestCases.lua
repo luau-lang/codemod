@@ -283,13 +283,15 @@ local testCases = {
 
 	-- edge case: global function is used before it is defined; still needs to be picked up as use
 	[ [[
-        local a = b()
+        local function a()
+            print(b())
+        end
         function b()
             return 1
         end
      ]] ] = {
 		["a_0"] = 0,
-		["b_1"] = 1,
+		["b_3"] = 1,
 	},
 }
 

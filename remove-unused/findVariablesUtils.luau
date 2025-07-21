@@ -136,8 +136,8 @@ local function findVariables(block: luau.AstStatBlock)
 		table.remove(scopeStack, #scopeStack) -- Pop current scope from stack
 	end
 
-	getVarsVisitor.visitLocalDeclaration = function(expression: luau.AstStatLocal)
-		handleVarDeclaration(expression.variables, variables, scopeStack)
+	getVarsVisitor.visitLocalDeclaration = function(statement: luau.AstStatLocal)
+		handleVarDeclaration(statement.variables, variables, scopeStack)
 		return true
 	end
 
@@ -146,12 +146,10 @@ local function findVariables(block: luau.AstStatBlock)
 		Registers the function name AST reference in the store and scope.
 		Note: Function parameters are not analyzed for usage as they're acceptable to be unused.
 	]]
-	getVarsVisitor.visitLocalFunction = function(expression: luau.AstStatLocalFunction)
-		if expression.name then
-			if not excludeVarName(expression.name.name.text) then
-				variables[expression.name] = 0 -- Initialize usage count
-				scopeStack[#scopeStack][expression.name.name.text] = expression.name -- Add to current scope
-			end
+	getVarsVisitor.visitLocalFunction = function(statement: luau.AstStatLocalFunction)
+		if not excludeVarName(statement.name.name.text) then
+			variables[statement.name] = 0 -- Initialize usage count
+			scopeStack[#scopeStack][statement.name.name.text] = statement.name -- Add to current scope
 		end
 		return true
 	end
@@ -162,20 +160,20 @@ local function findVariables(block: luau.AstStatBlock)
 		We use the function name (string, not AST node name) to index into globals.
 		When we find the function declaration, we then store the actual AST node reference.
 	]]
-	getVarsVisitor.visitFunction = function(expression: luau.AstStatLocalFunction)
-		if expression.name.name then
-			local funcName = expression.name.name.text
+	getVarsVisitor.visitFunction = function(statement: luau.AstStatLocalFunction)
+		if statement.name.name then
+			local funcName = statement.name.name.text
 			if not excludeVarName(funcName) then
 				if not globals[funcName] then
 					globals[funcName] = {
-						ref = expression.name,
+						ref = statement.name,
 						beforeInitCnt = 0,
 					}
 				else
-					globals[expression.name.name.text].ref = expression.name
+					globals[statement.name.name.text].ref = statement.name
 				end
 				-- visitExpression will count the function definition as a use, so we decrement by one here
-				variables[expression.name] = globals[expression.name.name.text].beforeInitCnt - 1
+				variables[statement.name] = globals[statement.name.name.text].beforeInitCnt - 1
 			end
 			-- Global functions don't need to be added to scope stack since they're accessible everywhere
 		end
@@ -192,24 +190,22 @@ local function findVariables(block: luau.AstStatBlock)
 		Increments usage count for global functions that are already defined.
 		For references before definition, tracks the count to apply later when definition is found.
 	]]
-	getVarsVisitor.visitExpression = function(expression: luau.AstExprGlobal)
+	getVarsVisitor.visitGlobal = function(expression: luau.AstExprGlobal)
 		local globalFuncName
-		if expression.tag == "global" then
-			globalFuncName = expression.name.text
-			if not globals[globalFuncName] then
-				globals[globalFuncName] = {
-					ref = nil,
-					beforeInitCnt = 0,
-				}
-			end
-			local globalFuncReference = globals[globalFuncName].ref
-			if globalFuncReference then
-				-- Function is already defined, increment its usage count
-				variables[globalFuncReference] += 1
-			else
-				-- Function referenced before definition, track for later
-				globals[globalFuncName].beforeInitCnt += 1
-			end
+		globalFuncName = expression.name.text
+		if not globals[globalFuncName] then
+			globals[globalFuncName] = {
+				ref = nil,
+				beforeInitCnt = 0,
+			}
+		end
+		local globalFuncReference = globals[globalFuncName].ref
+		if globalFuncReference then
+			-- Function is already defined, increment its usage count
+			variables[globalFuncReference] += 1
+		else
+			-- Function referenced before definition, track for later
+			globals[globalFuncName].beforeInitCnt += 1
 		end
 		return true
 	end
