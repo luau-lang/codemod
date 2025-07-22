@@ -1,19 +1,16 @@
---[[
-    Delete Variables and Functions Tests Module
-    
-    This module contains end-to-end tests for the remove-unused codemod.
-    It verifies that the combination of findVariables and deleteVariables functions 
-    correctly removes unused variables and functions from Lua/Luau code while preserving
-    the integrity and semantics of the code.
-    
-    The tests use predefined test cases from deleteVariablesTestCases.luau.
-]]
 local parser = require("@batteries/syntax/parser")
 local printer = require("@batteries/syntax/printer")
-local findVariables = require("../findVariablesUtils").findVariables
-local deleteVariables = require("../deleteVariables")
 local testCases = require("./deleteVariablesTestCases")
 local normalizeString = require("../helpers/testHelpers").normalizeString
+local codemod = require("../")
+
+local function apply(source: string)
+	return codemod.transform({
+		path = "",
+		source = source,
+		options = { selene = ""},
+	})
+end
 
 --[[    
     This function performs a complete removal process for a single test case:
@@ -27,22 +24,12 @@ local normalizeString = require("../helpers/testHelpers").normalizeString
 ]]
 local function test_deleteVariables(block, expectedOutput)
 	print("\n======================\nCurrent Case:")
+	local output = apply(block)
 	block = parser.parse(block)
 	print(printer.print(block))
-	local numDels, removalExceptions = 1, 0
-	local _vars, dels
-	while numDels > 0 do
-		_vars, dels, numDels = findVariables(block)
-		numDels -= removalExceptions
-		if numDels > 0 then
-			block, removalExceptions = deleteVariables(block, dels)
-		end
-	end
-	local outputSrc = printer.print(block)
-	print("Output:\n" .. outputSrc .. "\n" .. "======================")
+	print("Output:\n" .. output .. "\n" .. "======================")
 	print("Expected Output:\n" .. expectedOutput .. "\n" .. "======================")
-
-	assert(normalizeString(outputSrc) == normalizeString(expectedOutput))
+	assert(normalizeString(output) == normalizeString(expectedOutput))
 end
 
 local function run()
