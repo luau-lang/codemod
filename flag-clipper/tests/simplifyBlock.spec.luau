@@ -296,6 +296,19 @@ local function test_simplifyReassignment(repo: string)
 	assert(apply(source, "FlagName", true) == expected)
 end
 
+local function test_simplifyConditionalEarlyReturn()
+	local source = [[
+			if game:GetFastFlag("FlagName") then
+				return 1
+			end
+			return 2
+		]]
+	local expected = [[
+				return 1
+		]]
+	assert(apply(source) == expected)
+end
+
 local function test_simplifyReturn()
 	assert(apply('return game:GetFastFlag("FlagName")', "FlagName", true) == "return true")
 	assert(apply('return not game:GetFastFlag("FlagName")', "FlagName", true) == "return false")
@@ -326,6 +339,7 @@ return function()
 	for repo, _v in repoToFlagName do
 		test_simplifyReassignment(repo)
 	end
+	test_simplifyConditionalEarlyReturn()
 	test_simplifyReturn()
 	test_simplifyReturnFlagFalse()
 end
