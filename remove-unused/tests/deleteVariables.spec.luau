@@ -8,18 +8,15 @@ local function apply(source: string)
 	return codemod.transform({
 		path = "",
 		source = source,
-		options = { selene = ""},
+		options = { selene = "" },
 	})
 end
 
 --[[    
-    This function performs a complete removal process for a single test case:
-    1. Parse the input code
-    2. Iteratively find and remove unused functions/variables until none remain
-    3. Verify the final output matches the expected output
+    This function verifies the output of a complete removal process for a single test case.
     
-    @param block The input Lua/Luau code block to process
-    @param expectedOutput The expected code after removing unused functions/variables
+    @param block - The input Lua/Luau code block to process
+    @param expectedOutput - The expected code after removing unused functions/variables
     @throws Assertion error if outputs don't match
 ]]
 local function test_deleteVariables(block, expectedOutput)

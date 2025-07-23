@@ -25,8 +25,6 @@ local function outputMatch(output: findVariablesUtils.variableStore, expectedOut
 	print(`Correctly tracked {passedCases}/{totalCases} variables\n======================`)
 	assert(passedCases == totalCases)
 end
--- we can perhaps use varName_declarationLine as a key instead of just varName for better
--- means of testing scope
 
 local function test_findVariables(codeBlock, expectedOutput)
 	print("\n======================\nCurrent Case:")
