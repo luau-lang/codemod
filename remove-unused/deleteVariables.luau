@@ -27,7 +27,12 @@ local removalExceptions = 0
 	@param hasValues - True if the original statement had values (was initialization or assignment)
 	@return true if we are keeping the statement as it originally was, false otherwise
 ]]
-local function keepAllVariables(varsToKeep, valsToKeep, varStatement, hasValues): boolean
+local function keepAllVariables(
+	varsToKeep: luau.Punctuated<luau.AstLocal>,
+	valsToKeep: luau.Punctuated<luau.AstExpr>,
+	varStatement,
+	hasValues
+): boolean
 	if #varsToKeep == #varStatement.variables then
 		return true
 	end
@@ -61,7 +66,7 @@ end
 	@return `newVals` table containing the corresponding value nodes of `newVars`
 ]]
 local function filterVariablesAndValues(
-	varStatement: luau.AstStat,
+	varStatement: luau.AstStatLocal | luau.AstStatAssign,
 	deletions: deletionStore,
 	isAssign: boolean,
 	hasValues: boolean?
@@ -94,7 +99,11 @@ local function filterVariablesAndValues(
 	return varsToKeep, valsToKeep
 end
 
-local function handleVariableStatement(varStatement: luau.AstStatLocal, deletions: deletionStore, isAssign: boolean)
+local function handleVariableStatement(
+	varStatement: luau.AstStatLocal | luau.AstStatAssign,
+	deletions: deletionStore,
+	isAssign: boolean
+)
 	local varsToKeep, valsToKeep = filterVariablesAndValues(varStatement, deletions, isAssign, varStatement.equals)
 	return varsToKeep, valsToKeep
 end

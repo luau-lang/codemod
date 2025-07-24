@@ -57,7 +57,7 @@ end
     @param toInsert - The trivia to insert
     @return - The combined trivia
 ]]
-local function insertLeadingTrivia(attachTo: luau.AstExpr, toInsert: { luau.AstExpr })
+local function insertLeadingTrivia(attachTo: luau.Token, toInsert: { luau.Trivia })
 	local newTrivia = {}
 
 	-- Process each trivia node to insert
@@ -75,7 +75,7 @@ end
     @param statement - The AST statement to attach trivia to
     @param triviaToInsert - The trivia to insert
 ]]
-local function handleLeadingTriviaInsertion(statement: luau.AstStat, triviaToInsert: { luau.AstExpr })
+local function handleLeadingTriviaInsertion(statement: luau.AstStat, triviaToInsert: { luau.Trivia })
 	local leadingToken, _ = getStatementFirstAndLastToken(statement)
 	leadingToken.leadingTrivia = insertLeadingTrivia(leadingToken.leadingTrivia, triviaToInsert)
 end
@@ -112,8 +112,8 @@ end
 	@param statementTrailingTrivia - the trailing trivia of the original statement
 ]]
 local function handleVariableStatementTrivia(
-	varsToKeep: { luau.Punctuated },
-	valsToKeep: { luau.Punctuated },
+	varsToKeep: luau.Punctuated<luau.AstLocal>,
+	valsToKeep: luau.Punctuated<luau.AstExpr>,
 	statementTrailingTrivia: luau.Trivia
 )
 	-- Note: this function is only useful if we remove the original last variable in the statement, otherwise it's trivia will already be correct

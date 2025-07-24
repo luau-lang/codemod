@@ -37,11 +37,15 @@ end
 --[[
 	Traverses variable declaration statement to intitialize tracking of local references for each variable in the statement.
 
-	@param vars - Table of variables in the statement
+	@param declaredVars - Table of variables in the statement
 	@param variables - Variable store used to track variable usage
 	@param scopeStack - Scope stack used to keep track of current scope; declared variables are added to the current scope
 ]]
-local function handleVarDeclaration(declaredVars, variables: variableStore, scopeStack: { scope })
+local function handleVarDeclaration(
+	declaredVars: luau.Punctuated<luau.AstLocal>,
+	variables: variableStore,
+	scopeStack: { scope }
+)
 	if declaredVars then
 		for _, v in declaredVars do
 			if v.node then
@@ -80,7 +84,7 @@ end
 	@param node - The AST node representing the variable reference
 	@param variables - Store tracking variable usage counts
 ]]
-local function handleVarReference(node: luau.AstStatLocal, variables: variableStore)
+local function handleVarReference(node: luau.AstExprLocal, variables: variableStore)
 	-- Local references store the original variable declaration in the 'local' field
 	-- This allows us to match the reference with its declaration
 	if variables[node["local"]] then
@@ -160,7 +164,7 @@ local function findVariables(block: luau.AstStatBlock)
 		We use the function name (string, not AST node name) to index into globals.
 		When we find the function declaration, we then store the actual AST node reference.
 	]]
-	getVarsVisitor.visitFunction = function(statement: luau.AstStatLocalFunction)
+	getVarsVisitor.visitFunction = function(statement: luau.AstStatFunction)
 		if statement.name.name then
 			local funcName = statement.name.name.text
 			if not excludeVarName(funcName) then
