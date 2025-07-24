@@ -7,7 +7,7 @@ local visitor = require("@batteries/syntax/visitor")
 ]]
 local function filterTrailingTrivia(trivia)
 	for _, t in pairs(trivia) do
-		if t.tag == "comment" then
+		if t.tag == "comment" or t.tag == "blockcomment" then
 			return trivia
 		end
 	end
