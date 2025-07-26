@@ -1,8 +1,8 @@
 local fs = require("@lute/fs")
 local luau = require("@lute/luau")
-local parser = require("@batteries/syntax/parser")
+local parser = require("@std/syntax/parser")
 
-local visitor = require("@batteries/syntax/visitor")
+local visitor = require("@std/syntax/visitor")
 
 local fileResolver = require("../require-resolver/resolver")
 local isRequire = require("../require-resolver/isRequire")

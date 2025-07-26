@@ -1,6 +1,6 @@
 local luau = require("@lute/luau")
 
-local visitor = require("@batteries/syntax/visitor")
+local visitor = require("@std/syntax/visitor")
 
 local function getFirstToken(expression: luau.AstExpr): luau.Token
 	local firstToken: luau.Token? = nil

@@ -56,11 +56,11 @@ input on provided glob patterns / ignore lists, as well as perform the necessary
 and then write the result.
 
 The migration driver itself does not perform any AST parsing or printing. However, Lute comes with a built-in Luau parser,
-available at `@batteries/syntax`:
+available at `@std/syntax`:
 
 ```luau
-local parser = require("@batteries/syntax/parser")
-local printer = require("@batteries/syntax/printer")
+local parser = require("@std/syntax/parser")
+local printer = require("@std/syntax/printer")
 
 function migration(ctx)
     local parsedResult = parser.parsefile(ctx.source)
@@ -73,9 +73,9 @@ return migration
 A visitor mechanism is also available for basic AST traversal and modification.
 
 ```luau
-local parser = require("@batteries/syntax/parser")
-local printer = require("@batteries/syntax/printer")
-local visitor = require("@batteries/syntax/visitor")
+local parser = require("@std/syntax/parser")
+local printer = require("@std/syntax/printer")
+local visitor = require("@std/syntax/visitor")
 
 function migration(ctx)
     local parsedResult = parser.parsefile(ctx.source)
@@ -97,8 +97,8 @@ return migration
 For a more declarative approach, you can use a query-based select function:
 
 ```luau
-local parser = require("@batteries/syntax/parser")
-local printer = require("@batteries/syntax/printer")
+local parser = require("@std/syntax/parser")
+local printer = require("@std/syntax/printer")
 local query = require("./lib/query")
 
 function migration(ctx)

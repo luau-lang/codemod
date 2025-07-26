@@ -1,6 +1,6 @@
 local luau = require("@lute/luau")
 
-local visitor = require("@batteries/syntax/visitor")
+local visitor = require("@std/syntax/visitor")
 
 --- Selects a list of expressions from the provided block that match the provided predicate.
 --- Useful for defining declarative-based programs, where the matched nodes are mutated for the migration

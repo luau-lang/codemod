@@ -1,6 +1,6 @@
 local luau = require("@lute/luau")
 
-local visitor = require("@batteries/syntax/visitor")
+local visitor = require("@std/syntax/visitor")
 
 local isFlagAccess = require("./isFlagAccess")
 local isFlagFunction = require("./isFlagFunction")
