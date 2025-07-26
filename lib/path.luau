@@ -26,7 +26,7 @@ function path.dirname(filepath: string): string?
 	local separator = reversed:find("/")
 
 	if separator then
-		return reversed:sub(separator):reverse()
+		return reversed:sub(separator + 1):reverse()
 	else
 		return nil
 	end
