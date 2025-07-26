@@ -274,6 +274,29 @@ local function test_cleanupEntriesFromTable()
 	assert(apply(source, "FlagName", true) == expected)
 end
 
+local function test_earlyLoopTermination()
+	local source = [[
+			local i = 0
+			while i < 5 do
+				i += 1
+				if game:GetFastFlag("FlagName") then
+					print(i + 1)
+					break
+				end
+				print(i)
+			end
+		]]
+	local expected = [[
+			local i = 0
+			while i < 5 do
+				i += 1
+					print(i + 1)
+					break
+			end
+		]]
+	assert(apply(source) == expected)
+end
+
 local function test_snapshots()
 	local baseDirectory = path.joinPath(process.cwd(), "flag-clipper/tests/snapshots")
 
@@ -340,5 +363,6 @@ return function()
 	test_callWithPseudoTernaryInverse()
 	test_cleanupFastFlagsForTesting()
 	test_cleanupEntriesFromTable()
+	test_earlyLoopTermination()
 	test_snapshots()
 end

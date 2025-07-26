@@ -126,6 +126,10 @@ local function simplifyBlock(block: luau.AstStatBlock, ctx: evaluate.EvaluateCon
 
 					table.insert(statements, otherStatement)
 				end
+				-- if statements from simplified conditional terminate the outer block, return early & don't add subsequent statements
+				if statements[#statements].tag == "return" or statements[#statements].tag == "break" then
+					break
+				end
 			else
 				error(
 					`simplifyIf should only return a conditional statement or block of statements, but got {simplified.tag}`
