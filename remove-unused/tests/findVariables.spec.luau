@@ -1,4 +1,4 @@
-local parser = require("@batteries/syntax/parser")
+local parser = require("@std/syntax/parser")
 local findVariablesUtils = require("../findVariablesUtils")
 local testCases = require("./findVariablesTestCases")
 

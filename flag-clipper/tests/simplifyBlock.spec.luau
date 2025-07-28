@@ -1,5 +1,5 @@
-local parser = require("@batteries/syntax/parser")
-local printer = require("@batteries/syntax/printer")
+local parser = require("@std/syntax/parser")
+local printer = require("@std/syntax/printer")
 
 local evaluate = require("../evaluate")
 local simplifyBlock = require("../simplifyBlock")
@@ -296,6 +296,35 @@ local function test_simplifyReassignment(repo: string)
 	assert(apply(source, "FlagName", true) == expected)
 end
 
+local function test_simplifyConditionalEarlyReturn()
+	local source = [[
+			if game:GetFastFlag("FlagName") then
+				return 1
+			end
+			return 2
+		]]
+	local expected = [[
+				return 1
+		]]
+	assert(apply(source) == expected)
+end
+
+local function test_dontSimplifyAssignmentIfVariableIsPresentOnRHS()
+	local source = [[
+		local variable = true
+		if game:GetFastFlag("FlagName") then
+			variable = apply(variable)
+		end
+	]]
+
+	local expected = [[
+		local variable = true
+			variable = apply(variable)
+	]]
+
+	assert(apply(source, "FlagName", true) == expected)
+end
+
 local function test_simplifyReturn()
 	assert(apply('return game:GetFastFlag("FlagName")', "FlagName", true) == "return true")
 	assert(apply('return not game:GetFastFlag("FlagName")', "FlagName", true) == "return false")
@@ -326,6 +355,8 @@ return function()
 	for repo, _v in repoToFlagName do
 		test_simplifyReassignment(repo)
 	end
+	test_simplifyConditionalEarlyReturn()
+	test_dontSimplifyAssignmentIfVariableIsPresentOnRHS()
 	test_simplifyReturn()
 	test_simplifyReturnFlagFalse()
 end

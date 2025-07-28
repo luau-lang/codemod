@@ -1,4 +1,5 @@
 local luau = require("@lute/luau")
+local visitor = require("@std/syntax/visitor")
 
 local createConstantBoolean = require("./createConstantBoolean")
 local evaluate = require("./evaluate")
@@ -17,6 +18,24 @@ local function simplifyConstantExpression(ctx: evaluate.EvaluateContext, express
 	end
 
 	return nil
+end
+
+--- Checks to see if the provided expression has a reference to the provided local.
+--- e.g., for the local `value`, and the expression `call(value)`, return true.
+local function expressionReferencesLocal(expression: luau.AstExpr, loc: luau.AstLocal)
+	local isReferencingLocal = false
+
+	local referenceVisitor = visitor.createVisitor()
+	referenceVisitor.visitLocalReference = function(reference: luau.AstExprLocal)
+		if loc == reference["local"] then
+			isReferencingLocal = true
+			return false
+		end
+		return true
+	end
+	visitor.visitExpression(expression, referenceVisitor)
+
+	return isReferencingLocal
 end
 
 local function simplifyBlock(block: luau.AstStatBlock, ctx: evaluate.EvaluateContext): luau.AstStatBlock
@@ -115,7 +134,8 @@ local function simplifyBlock(block: luau.AstStatBlock, ctx: evaluate.EvaluateCon
 							assigningTo.tag == "local"
 							and previousStatement.tag == "local"
 							and #previousStatement.variables == 1
-							and previousStatement.variables[1].node.name.text == assigningTo.token.text
+							and previousStatement.variables[1].node == assigningTo["local"]
+							and not expressionReferencesLocal(otherStatement.values[1].node, assigningTo["local"])
 						then
 							previousStatement.variables[1].node.name.trailingTrivia = assigningTo.token.trailingTrivia
 							previousStatement.equals = otherStatement.equals
@@ -125,6 +145,10 @@ local function simplifyBlock(block: luau.AstStatBlock, ctx: evaluate.EvaluateCon
 					end
 
 					table.insert(statements, otherStatement)
+				end
+				-- if statements from simplified conditional terminate the outer block, return early & don't add subsequent statements
+				if statements[#statements].tag == "return" or statements[#statements].tag == "break" then
+					break
 				end
 			else
 				error(

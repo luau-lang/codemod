@@ -20,6 +20,14 @@ function strings.endsWith(str: string, suffix: string): boolean
 	return str:sub(-#suffix) == suffix
 end
 
+function strings.removeSuffix(str: string, suffix: string): string
+	if not strings.endsWith(str, suffix) then
+		return str
+	end
+
+	return str:sub(0, -#suffix - 1)
+end
+
 function strings.trim(str: string): string
 	-- Pattern is guaranteed to return a result
 	return str:match("^%s*(.-)%s*$") :: string

@@ -1,8 +1,8 @@
 local luau = require("@lute/luau")
 
-local parser = require("@batteries/syntax/parser")
-local printer = require("@batteries/syntax/printer")
-local visitor = require("@batteries/syntax/visitor")
+local parser = require("@std/syntax/parser")
+local printer = require("@std/syntax/printer")
+local visitor = require("@std/syntax/visitor")
 
 local codemod = require("./lib/types")
 local sourcemap = require("./require-resolver/sourcemap")

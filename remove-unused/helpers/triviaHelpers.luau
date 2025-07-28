@@ -1,5 +1,5 @@
 local luau = require("@lute/luau")
-local visitor = require("@batteries/syntax/visitor")
+local visitor = require("@std/syntax/visitor")
 
 --[[
     If the trivia only contains whitespace or newlines,

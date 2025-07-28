@@ -1,6 +1,6 @@
 local luau = require("@lute/luau")
 local findVariablesUtils = require("./findVariablesUtils")
-local visitor = require("@batteries/syntax/visitor")
+local visitor = require("@std/syntax/visitor")
 local triviaHelpers = require("./helpers/triviaHelpers")
 local handleLeadingTriviaInsertion = triviaHelpers.handleLeadingTriviaInsertion
 local storeStatementTrivia = triviaHelpers.storeStatementTrivia
