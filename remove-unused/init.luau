@@ -63,6 +63,8 @@ local function transform(ctx: codemod.Context<Options>)
 				block, removalExceptions = deleteVariables(block, deletions)
 			end
 		end
+	else
+		print(`Skipping {ctx.path} as per selene exlude`)
 	end
 
 	return printer.printfile({ root = block, eof = result.eof })

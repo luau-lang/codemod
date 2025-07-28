@@ -57,7 +57,7 @@ end
     @param toInsert - The trivia to insert
     @return - The combined trivia
 ]]
-local function insertLeadingTrivia(attachTo: luau.Token, toInsert: { luau.Trivia })
+local function insertLeadingTrivia(attachTo: luau.Token, toInsert: { { luau.Trivia } })
 	local newTrivia = {}
 
 	-- Process each trivia node to insert
@@ -75,7 +75,7 @@ end
     @param statement - The AST statement to attach trivia to
     @param triviaToInsert - The trivia to insert
 ]]
-local function handleLeadingTriviaInsertion(statement: luau.AstStat, triviaToInsert: { luau.Trivia })
+local function handleLeadingTriviaInsertion(statement: luau.AstStat, triviaToInsert: { { luau.Trivia } })
 	local leadingToken, _ = getStatementFirstAndLastToken(statement)
 	leadingToken.leadingTrivia = insertLeadingTrivia(leadingToken.leadingTrivia, triviaToInsert)
 end
@@ -95,7 +95,7 @@ end
     @param statement - The AST statement to extract trivia from
     @param triviaDeposit - The table where extracted trivia will be stored
 ]]
-local function storeStatementTrivia(statement: luau.AstStat, triviaDeposit: { luau.Trivia })
+local function storeStatementTrivia(statement: luau.AstStat, triviaDeposit: { { luau.Trivia } })
 	local statementLeadingTrivia, statementTrailingTrivia = getStatementTrivia(statement)
 
 	table.insert(triviaDeposit, statementLeadingTrivia)
@@ -114,7 +114,7 @@ end
 local function handleVariableStatementTrivia(
 	varsToKeep: luau.Punctuated<luau.AstLocal>,
 	valsToKeep: luau.Punctuated<luau.AstExpr>,
-	statementTrailingTrivia: luau.Trivia
+	statementTrailingTrivia: { luau.Trivia }
 )
 	-- Note: this function is only useful if we remove the original last variable in the statement, otherwise it's trivia will already be correct
 	local hasValues = #valsToKeep > 0
@@ -132,7 +132,7 @@ local function handleVariableStatementTrivia(
 	end
 end
 
-local function handleLeftoverTrivia(triviaToAppend: { luau.Trivia }, lastKeptStatement: luau.AstStat)
+local function handleLeftoverTrivia(triviaToAppend: { { luau.Trivia } }, lastKeptStatement: luau.AstStat)
 	if #triviaToAppend == 0 or not lastKeptStatement then
 		return
 	end
