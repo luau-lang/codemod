@@ -50,7 +50,6 @@ local function parseGlob(glob: string): Glob
 	-- i.e., anchor the pattern to the start
 	if glob:find("/") then
 		table.insert(lua_parts, "^")
-		idx = 2
 	else
 		-- If no leading slash, it can match anywhere, including after a directory.
 		-- This means it can start at the beginning of the string, or after a slash.
@@ -96,7 +95,11 @@ local function parseGlob(glob: string): Glob
 	end
 
 	-- Add the ending anchor if not already an implicit `.*` from `**`
-	if glob:sub(-2) ~= "**" then
+	if onlyMatchDirectories then
+		-- Match the directory itself or anything inside it
+		table.insert(lua_parts, "/.*$")
+	elseif glob:sub(-2) ~= "**" then
+		-- It's a file pattern, so anchor it to the end
 		table.insert(lua_parts, "$")
 	end
 
@@ -138,9 +141,6 @@ local function parseGitignore(filepath: string): GitignoreData
 end
 
 local function matchesGlob(glob: Glob, filepath: string, isDirectory: boolean): boolean
-	if glob.onlyMatchDirectories and not isDirectory then
-		return false
-	end
 	return filepath:match(glob.pattern) ~= nil
 end
 
