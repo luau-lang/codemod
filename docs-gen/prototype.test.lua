@@ -58,9 +58,9 @@ visitor.visitBlock(testAST, testVisitor)
 
 -- just an eye-test file for now; will add more complex asserts later...
 
-local FileVisitor = prototypes.FileVisitor.new()
+local FileVisitor = prototypes.FileVisitor.new(".luaurc")
 
-FileVisitor:analyzeFile("../roblox/foundation/modules/foundation/src/Components/Accordion/init.lua")
+FileVisitor:analyzeFile("flag-clipper/init.luau")
 
 print("\nTypes:")
 for k, v in FileVisitor.typeMap do
@@ -74,11 +74,15 @@ print("\nReturned Vars:")
 for k, v in FileVisitor.returnedVars do
 	print(k, v.tag)
 end
-print("\n\Required Vars:")
-for k, v in FileVisitor.requires do
+print("\nRequired Vars:")
+for k, v in FileVisitor.requireCalls do
 	print(k, v)
 end
--- print("\nDocumented Function Signatures")
--- FileVisitor:getFunctionDocumentation()
--- print("\nDocumented Type Signatures")
--- FileVisitor:getTypeDocumentation()
+print("\nDependency Paths:")
+for k, v in FileVisitor.dependencies do
+	print(k, v)
+end
+print("\nExport Paths:")
+for k, v in FileVisitor.exports do
+	print(k, v)
+end
