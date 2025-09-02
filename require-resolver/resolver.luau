@@ -9,9 +9,50 @@ export type ModuleInfo = {
 
 export type Resolver = (context: ModuleInfo?, expression: luau.AstExpr) -> ModuleInfo?
 
-local function resolveStringRequire(path: string, from: ModuleName): ModuleInfo?
-	print("TODO: support string requires")
-	return nil
+local function resolveAliasRequire(path: string, aliasMap: { [string]: string }, isInit: boolean): string | nil
+	-- to resolve "@" syntax, we need to use alias map from .luaurc
+	-- @self is same as ".", indicates at same level
+	-- rest of aliases need to be resolved via .luaurc
+	-- if contains @, resolve, else return as is
+	if path:find("@") then
+		if aliasMap then
+			local alias = path:gsub("@", "")
+			if alias == "self" then
+				return "."
+			elseif aliasMap[alias] then
+				return aliasMap[alias]
+			end
+			return nil
+		end
+	end
+	-- if from init file, "." is actually ".." in absolute path
+	if isInit and path == "." then
+		return ".."
+	end
+	return path
+end
+
+local function resolveStringRequire(path: string, from: ModuleName, aliasMap: { [string]: string }): ModuleInfo?
+	-- path is relative to "from", indicates the file in which we are resolving requires
+	local split = from:split("/")
+	local isInit = split[#split] == "init.lua" or split[#split] == "init.luau"
+	print(isInit, split[#split])
+	table.remove(split, #split)
+	local parent = table.concat(split, "/")
+	-- resolve each piece of the required path
+	local childPath = path:split("/")
+	for ind, entry in childPath do
+		local resolved = resolveAliasRequire(entry, aliasMap, isInit)
+		if not resolved then
+			return nil
+		end
+		childPath[ind] = resolved
+	end
+	-- alias paths are scoped at project root, so don't concat with parent
+	local completeChildPath = table.concat(childPath, "/")
+	return {
+		moduleName = if path:find("@") then completeChildPath else `{parent}/{completeChildPath}`,
+	}
 end
 
 local function getParentPath(path: string)
@@ -36,14 +77,15 @@ end
 
 --- Creates a standard file resolver for require resolution.
 --- Supports string requires, including aliases (based off luaurc), as well as Roblox style requires
-local function createFileResolver(sourcemapData: sourcemap.SourcemapData?)
+local function createFileResolver(sourcemapData: sourcemap.SourcemapData?, aliasMap: { [string]: string }?)
 	return function(context: ModuleInfo?, expression: luau.AstExpr): ModuleInfo?
 		if context == nil then
+			print("missing context")
 			return nil
 		end
 
 		if expression.tag == "string" then
-			return resolveStringRequire(expression.text, context.moduleName)
+			return resolveStringRequire(expression.text, context.moduleName, aliasMap or {})
 		elseif expression.tag == "global" then
 			local globalName = expression.name.text
 			if globalName == "game" then
