@@ -1,11 +1,6 @@
 local visitor = require("@std/syntax/visitor")
 local luau = require("@lute/luau")
 
-local function t()
-	return 1, 2
-end
-local x, y = t()
-
 type Visitor = (node: any, visitor: visitor.Visitor) -> boolean
 
 local function getGeneric(node: luau.AstGenericType | luau.AstGenericPack)
