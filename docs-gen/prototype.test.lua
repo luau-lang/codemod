@@ -5,15 +5,17 @@ local prototypes = require("./prototype")
 -- get
 
 local testVisitor = visitor.createVisitor()
-local function visitFunction(node: AstStatLocalFunction | AstStatFunction)
+local function visitFunction(node: luau.AstStatLocalFunction | luau.AstStatFunction | luau.AstExprAnonymousFunction)
 	local nodeSig = prototypes.getFunctionSignature(node)
-	print(`Evaluated {node.name.name.text} function as:`, nodeSig, "\n")
+	print(`Evaluated {if node.name then node.name.name.text else "anonymouse"} function as:`, nodeSig, "\n")
 	return true
 end
 
 testVisitor.visitLocalFunction = visitFunction
 
 testVisitor.visitFunction = visitFunction
+
+testVisitor.visitAnonymousFunction = visitFunction
 
 testVisitor.visitTypeAlias = function(node: luau.AstType)
 	local typeSig = prototypes.getTypeSignature(node)
@@ -48,6 +50,10 @@ local function getFunctionParameters(node: luau.AstStatFunction | luau.AstStatLo
     end
     res ..= getTokenText(node.closeParens)
     return res
+end
+
+local m = function(i: string): number
+    print(i)
 end
 
 return getFileMap

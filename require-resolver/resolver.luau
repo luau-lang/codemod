@@ -36,7 +36,6 @@ local function resolveStringRequire(path: string, from: ModuleName, aliasMap: { 
 	-- path is relative to "from", indicates the file in which we are resolving requires
 	local split = from:split("/")
 	local isInit = split[#split] == "init.lua" or split[#split] == "init.luau"
-	print(isInit, split[#split])
 	table.remove(split, #split)
 	local parent = table.concat(split, "/")
 	-- resolve each piece of the required path
