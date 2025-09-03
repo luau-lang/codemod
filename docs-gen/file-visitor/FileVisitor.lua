@@ -9,8 +9,8 @@ local requireTracer = require("../../require-resolver/tracer")
 local sourcemap = require("../../require-resolver/sourcemap")
 local fileUtils = require("./fileUtils")
 
-type VarMap = { [string | luau.AstLocal]: luau.AstExpr }
-type TypeMap = { [string]: luau.AstType }
+export type VarMap = { [string | luau.AstLocal]: luau.AstExpr }
+export type TypeMap = { [string]: luau.AstType }
 
 type FileVisitor = {
 	mappingVisitor: visitor.Visitor,
@@ -76,8 +76,18 @@ function FileVisitor.new(luauRcPath: string?, sourcemapPath: string?)
 	return setmetatable(self, FileVisitor)
 end
 
+function FileVisitor:resetMetadata()
+	self.varMap = {}
+	self.requiredVars = {}
+	self.dependencies = {}
+	self.exports = {} -- essentially dependencies filtered by what is returned
+	self.typeMap = {}
+	self.returnedVars = {}
+end
+
 -- populates varMap, typeMap, and returnedVars from a file src
 function FileVisitor:analyzeFile(filePath: string)
+	self:resetMetadata()
 	local src = fs.readfiletostring(filePath)
 	local srcAST = parser.parse(src)
 	visitor.visitBlock(srcAST, self.mappingVisitor)
@@ -133,12 +143,7 @@ function FileVisitor:getDependencies(src: luau.AstStatBlock, path: string)
 	end
 end
 
--- if it's
-
---[[
-to get exports: direct requires that are returned
-existing system gets required variables that are returned;
-we'll also want to get direct requires in our return value
-]]
+-- Big implementation note: align the procedures used to get exports and get returned variables
+-- only difference is that for returned variables, we want to filter out requires. whereas for
 
 return FileVisitor

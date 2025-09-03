@@ -4,9 +4,10 @@ local fs = require("@lute/fs")
 local luau = require("@lute/luau")
 local commonHelpers = require("../commonHelpers")
 local findReferencedVariables = commonHelpers.findReferencedVariables
+local isAnonymousFunction = commonHelpers.isAnonymousFunction
 local isRequire = require("../../require-resolver/isRequire")
 
-function getCallNodes(node: luau.AstExpr)
+function getRequireCallNodes(node: luau.AstExpr)
 	local reqVisitor = visitor.createVisitor()
 	local callNodes = {}
 	reqVisitor.visitCall = function(node)
@@ -20,7 +21,7 @@ function getCallNodes(node: luau.AstExpr)
 	return callNodes
 end
 
-function containsRequire(node: luau.AstExpr)
+function exprContainsRequire(node: luau.AstExpr)
 	-- see if require exists at all in expression (bc it cud be index/indexname require, etc)
 	local hasRequire = false
 	local reqVisitor = visitor.createVisitor()
@@ -28,7 +29,11 @@ function containsRequire(node: luau.AstExpr)
 		hasRequire = hasRequire or isRequire(node)
 		return true
 	end
-	visitor.visitExpression(node, reqVisitor)
+
+	local _succ, _res = pcall(function()
+		visitor.visitExpression(node, reqVisitor)
+	end)
+
 	return hasRequire
 end
 
@@ -57,11 +62,11 @@ local function getAliasMap(luauRcPath: string?)
 end
 
 -- kinda a redudant step...? catches and filters out vars not at file scope (bc these vars will not be in varMap)
--- also separates required vars from declared vars
+-- also filters required vars from declared vars
 function filterVarMap(filterBy: { string }, varMap: VarMap): VarMap
 	local vars = {}
 	for _, key in filterBy do
-		if varMap[key] then
+		if varMap[key] and not exprContainsRequire(varMap[key]) then
 			vars[key] = varMap[key] -- only keep nodes in our varMap
 		end
 	end
@@ -70,18 +75,26 @@ end
 
 -- adds variables references in the passed node to the passed table
 -- used for handling anonymous values, tables/function calls so we can resolve
-function handleAnonymous(node: luau.AstExpr, toInsert: { any })
-	for var, _ in findReferencedVariables(node.node or node) do
-		table.insert(toInsert, var)
+function handleAnonymous(node: luau.AstExpr, toInsert: { any }, varMap: VarMap)
+	-- if anonymous functions should be specifically handled
+	if isAnonymousFunction(node.node or node) then
+		-- hmmmm; this is a bad solution
+		varMap["anonymousReturn"] = node.node or node
+		table.insert(toInsert, "anonymousReturn")
+	else
+		-- for other anonymous variables, we can just find references
+		for var, _ in findReferencedVariables(node.node or node) do
+			table.insert(toInsert, var)
+		end
 	end
 end
 
 function handleReturnedVariables(varName: string, returns: { any }, varMap: VarMap)
 	if varMap[varName] and varMap[varName].tag == "table" or varMap[varName].tag == "call" then
-		handleAnonymous(varMap[varName], returns)
-	else
-		table.insert(returns, varName)
+		handleAnonymous(varMap[varName], returns, varMap)
 	end
+
+	table.insert(returns, varName)
 end
 
 -- we can probably simplify this and just visit call findReferencesVariables on the return statement...
@@ -102,8 +115,7 @@ function getReturnValues(src: luau.AstStatBlock, varMap: VarMap): { string }
 			local varName = expr.node.name.text
 			handleReturnedVariables(varName, returns, varMap)
 		else
-			-- if anonymous value, find local references and
-			handleAnonymous(expr, returns)
+			handleAnonymous(expr, returns, varMap)
 		end
 	end
 
@@ -115,8 +127,9 @@ function getReturnedNodesMap(src: luau.AstStatBlock, varMap: VarMap): VarMap
 end
 
 return {
-	getCallNode = getCallNodes,
-	containsRequire = containsRequire,
+	filterRequire = filterRequire,
+	getCallNode = getRequireCallNodes,
+	containsRequire = exprContainsRequire,
 	getAliasMap = getAliasMap,
 	getReturnedNodesMap = getReturnedNodesMap,
 	getReturnValues = getReturnValues,

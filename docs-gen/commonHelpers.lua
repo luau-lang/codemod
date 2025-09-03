@@ -3,6 +3,14 @@ local luau = require("@lute/luau")
 
 type Visitor = (node: any, visitor: visitor.Visitor) -> boolean
 
+local function isAnonymousFunction(node: luau.AstExpr)
+	return node.tag == "function" and not node.name
+end
+
+local function isFunction(node: luau.AstExpr | luau.AstStat)
+	return node.tag and node.tag == "localfunction" or node.tag == "function" or node.tag == "anonymousfunction"
+end
+
 local function getGeneric(node: luau.AstGenericType | luau.AstGenericPack)
 	local res = ""
 	res ..= getTokenText(node.name)
@@ -88,6 +96,8 @@ function findReferencedVariables(node: any): { [string]: boolean }
 end
 
 return {
+	isAnonymousFunction = isAnonymousFunction,
+	isFunction = isFunction,
 	getNodeText = getNodeText,
 	getTrivia = getTrivia,
 	getTokenText = getTokenText,

@@ -61,7 +61,7 @@ then from body, we extract:
 ]]
 function getFunctionSignature(node: luau.AstStatFunction | luau.AstStatLocalFunction): string
 	local docsComments = if node.localKeyword then getTrivia(node.localKeyword) else getTrivia(node.functionKeyword)
-	local functionName = getTokenText(node.name.name) -- need to handle index name functions and : functions
+	local functionName = getTokenText(if node.name then node.name.name else "") -- need to handle index name functions and : functions
 	local functionKeyword, localKeyword = getTokenText(node.functionKeyword), getTokenText(node.localKeyword)
 	local functionGenerics = getFunctionGenerics(node.body)
 	local functionParams = getFunctionParameters(node.body) -- need to handle varargs
