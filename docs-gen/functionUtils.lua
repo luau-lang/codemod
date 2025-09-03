@@ -11,8 +11,7 @@ local getTokenText, getPunctuated, getGeneric, getTypeText, getTrivia =
 getFunctionSignature(functionDeclarationNode: AstStatFunction | AstStatLocalFunction): string
 
 want to extract everything but the function body itself; can use printer to print resultant string
-honestly, maybe just fill the body with "..."
-
+maybe just fill the body with "..."
 ]]
 local function getFunctionReturnSignature(node: luau.AstFunctionBody): string
 	return getTokenText(node.returnSpecifier) .. getTypeText(node.returnAnnotation)
@@ -59,7 +58,7 @@ then from body, we extract:
     - 
 -- we'll want to expand to support extracting docs comments above function declaration; which we should process in special way
 ]]
-function getFunctionSignature(node: luau.AstStatFunction | luau.AstStatLocalFunction): string
+function getFunctionSignature(node: luau.AstStatFunction | luau.AstStatLocalFunction | luau.AstExprAnonymousFunction): string
 	local docsComments = if node.localKeyword then getTrivia(node.localKeyword) else getTrivia(node.functionKeyword)
 	local functionName = getTokenText(if node.name then node.name.name else "") -- need to handle index name functions and : functions
 	local functionKeyword, localKeyword = getTokenText(node.functionKeyword), getTokenText(node.localKeyword)
@@ -76,4 +75,7 @@ end
 
 return {
 	getFunctionSignature = getFunctionSignature,
+	getFunctionGenerics = getFunctionGenerics,
+	getFunctionVarArgs = getFunctionVarArgs,
+	getFunctionParameters = getFunctionParameters,
 }
