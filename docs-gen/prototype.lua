@@ -1,4 +1,4 @@
-local FileVisitor = require("./fileUtils").FileVisitor
+local FileVisitor = require("./file-visitor/FileVisitor")
 local getFunctionSignature = require("./functionUtils").getFunctionSignature
 local getTypeSignature = require("./typeUtils").getTypeSignature
 

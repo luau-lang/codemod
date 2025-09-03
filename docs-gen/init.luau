@@ -1,4 +1,4 @@
-local FileVisitor = require("./docs-gen/fileUtils").FileVisitor
+local FileVisitor = require("./docs-gen/file-visitor/FileVisitor")
 local codemod = require("./lib/types")
 
 type Options = {
@@ -22,7 +22,7 @@ local function transform(ctx: codemod.Context<Options>)
 		print(k, v.tag)
 	end
 	print("\nRequired Vars:")
-	for k, v in prototypeVisitor.requireCalls do
+	for k, v in prototypeVisitor.requiredVars do
 		print(k, v)
 	end
 	print("\nDependency Paths:")

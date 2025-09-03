@@ -75,7 +75,7 @@ for k, v in FileVisitor.returnedVars do
 	print(k, v.tag)
 end
 print("\nRequired Vars:")
-for k, v in FileVisitor.requireCalls do
+for k, v in FileVisitor.requiredVars do
 	print(k, v)
 end
 print("\nDependency Paths:")
