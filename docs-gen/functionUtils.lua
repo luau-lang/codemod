@@ -1,11 +1,12 @@
 local luau = require("@lute/luau")
 local commonHelpers = require("./commonHelpers")
-local getTokenText, getPunctuated, getGeneric, getTypeText, getTrivia =
+local getTokenText, getPunctuated, getGeneric, getTypeText, getTrivia, getLocal =
 	commonHelpers.getTokenText,
 	commonHelpers.getPunctuated,
 	commonHelpers.getGeneric,
 	commonHelpers.getTypeText,
-	commonHelpers.getTrivia
+	commonHelpers.getTrivia,
+	commonHelpers.getLocal
 
 --[[
 getFunctionSignature(functionDeclarationNode: AstStatFunction | AstStatLocalFunction): string
@@ -31,10 +32,7 @@ local function getFunctionVarArgs(node: luau.AstFunctionBody): string
 end
 
 local function getFunctionParameter(node: AstLocal): string
-	if node then
-		return getTokenText(node.name) .. getTokenText(node.colon) .. getTypeText(node.annotation)
-	end
-	return ""
+	return getLocal(node)
 end
 
 local function getFunctionParameters(node: luau.AstFunctionBody): string
@@ -58,7 +56,9 @@ then from body, we extract:
     - 
 -- we'll want to expand to support extracting docs comments above function declaration; which we should process in special way
 ]]
-function getFunctionSignature(node: luau.AstStatFunction | luau.AstStatLocalFunction | luau.AstExprAnonymousFunction): string
+function getFunctionSignature(
+	node: luau.AstStatFunction | luau.AstStatLocalFunction | luau.AstExprAnonymousFunction
+): string
 	local docsComments = if node.localKeyword then getTrivia(node.localKeyword) else getTrivia(node.functionKeyword)
 	local functionName = getTokenText(if node.name then node.name.name else "") -- need to handle index name functions and : functions
 	local functionKeyword, localKeyword = getTokenText(node.functionKeyword), getTokenText(node.localKeyword)

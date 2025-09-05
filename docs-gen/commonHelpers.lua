@@ -11,6 +11,13 @@ local function isFunction(node: luau.AstExpr | luau.AstStat)
 	return node.tag and node.tag == "localfunction" or node.tag == "function" or node.tag == "anonymousfunction"
 end
 
+local function getLocal(node: luau.AstLocal)
+	if node then
+		return getTokenText(node.name) .. getTokenText(node.colon) .. getTypeText(node.annotation)
+	end
+	return ""
+end
+
 local function getGeneric(node: luau.AstGenericType | luau.AstGenericPack)
 	local res = ""
 	res ..= getTokenText(node.name)
@@ -95,9 +102,15 @@ function findReferencedVariables(node: any): { [string]: boolean }
 	return referencedVars
 end
 
+function trim(s)
+	return (s:gsub("^%s*(.-)%s*$", "%1"))
+end
+
 return {
+	trim = trim,
 	isAnonymousFunction = isAnonymousFunction,
 	isFunction = isFunction,
+	getLocal = getLocal,
 	getNodeText = getNodeText,
 	getTrivia = getTrivia,
 	getTokenText = getTokenText,
