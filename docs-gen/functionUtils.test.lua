@@ -5,6 +5,15 @@ function trim(s)
 	return (s:gsub("^%s*(.-)%s*$", "%1"))
 end
 
+local function testFunctionSignature(functionSrc: string, expectedSig: string)
+	local srcNode = parser.parse(functionSrc)
+	local funcNode = srcNode.statements[1]
+	local result = trim(functionUtils.getFunctionSignature(funcNode))
+	-- strip whitespace at start and end for simplicity
+	assert(result == expectedSig, `{result} does not match: {expectedSig}`)
+	print(`Correctly got signature: {result}\nfor:\n{functionSrc}`)
+end
+
 local function test_getFunctionGenerics()
 	local src = "function <T...>() return end"
 	local srcNode = parser.parseexpr(src)
@@ -28,34 +37,30 @@ end
 
 local function test_getLocalFunctionSignature()
 	local localFunc = [[
-        local function f<T>(a: T, b: string, ...: T): T
-            return a
-        end
+	local function f<T>(a: T, b: string, ...: T): T
+		return a
+	end
     ]]
 	local sig = "local function f<T>(a: T, b: string, ...: T): T"
-	local srcNode = parser.parse(localFunc)
-	local funcNode = srcNode.statements[1]
-	local result = trim(functionUtils.getFunctionSignature(funcNode))
-	-- strip whitespace at start and end for simplicity
-	assert(result == sig, `{result} does not match: {sig}`)
+	testFunctionSignature(localFunc, sig)
 end
 
 local function test_getGlobalFunctionSignature()
 	local globalFunc = [[
-        function f<T>(a: T, b: string, ...: T): T
-            return a
-        end
+	function f<T>(a: T, b: string, ...: T): T
+		return a
+	end
     ]]
 	local sig = "function f<T>(a: T, b: string, ...: T): T"
-	local srcNode = parser.parse(globalFunc)
-	local funcNode = srcNode.statements[1]
-	local result = trim(functionUtils.getFunctionSignature(funcNode))
-	-- strip whitespace at start and end for simplicity
-	assert(result == sig, `{result} does not match: {sig}`)
+	testFunctionSignature(globalFunc, sig)
 end
 
 local function test_getAnonymousFunctionSignature()
-	local anonymousFunc = "function <T>(a: T, b: string, ...: T): T return a end"
+	local anonymousFunc = [[
+	function <T>(a: T, b: string, ...: T): T
+		return a 
+	end
+	]]
 	local sig = "function <T>(a: T, b: string, ...: T): T"
 	local srcNode = parser.parseexpr(anonymousFunc) -- parsing as expression will ensure this src string is evaluated as anonymous
 	local result = trim(functionUtils.getFunctionSignature(srcNode))
@@ -63,10 +68,28 @@ local function test_getAnonymousFunctionSignature()
 	assert(result == sig, `{result} does not match: {sig}`)
 end
 
+local function test_indexFunctionSignature()
+	local indexFunc = [[
+	function f.foo<T>(a: T, b: string, ...: T): T
+		return a
+	end
+    ]]
+	local sig = "function f.foo<T>(a: T, b: string, ...: T): T"
+	testFunctionSignature(indexFunc, sig)
+	indexFunc = [[
+	function f:foo<T>(a: T, b: string, ...: T): T
+		return a
+	end
+    ]]
+	sig = "function f:foo<T>(a: T, b: string, ...: T): T"
+	testFunctionSignature(indexFunc, sig)
+end
+
 local function test_getFunctionSignature()
 	test_getAnonymousFunctionSignature()
 	test_getGlobalFunctionSignature()
 	test_getLocalFunctionSignature()
+	test_indexFunctionSignature()
 end
 
 test_getFunctionGenerics()

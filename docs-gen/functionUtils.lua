@@ -1,12 +1,14 @@
 local luau = require("@lute/luau")
 local commonHelpers = require("./commonHelpers")
-local getTokenText, getPunctuated, getGeneric, getTypeText, getTrivia, getLocal =
+local visitor = require("@std/syntax/visitor")
+local getTokenText, getPunctuated, getGeneric, getTypeText, getTrivia, getLocal, getNodeText =
 	commonHelpers.getTokenText,
 	commonHelpers.getPunctuated,
 	commonHelpers.getGeneric,
 	commonHelpers.getTypeText,
 	commonHelpers.getTrivia,
-	commonHelpers.getLocal
+	commonHelpers.getLocal,
+	commonHelpers.getNodeText
 
 --[[
 getFunctionSignature(functionDeclarationNode: AstStatFunction | AstStatLocalFunction): string
@@ -60,7 +62,11 @@ function getFunctionSignature(
 	node: luau.AstStatFunction | luau.AstStatLocalFunction | luau.AstExprAnonymousFunction
 ): string
 	local docsComments = if node.localKeyword then getTrivia(node.localKeyword) else getTrivia(node.functionKeyword)
-	local functionName = getTokenText(if node.name then node.name.name else "") -- need to handle index name functions and : functions
+	local functionName = if node.name
+		then if node.name.tag == "indexname"
+			then getNodeText(node.name, visitor.visitExpression)
+			else getTokenText(node.name.name or "")
+		else ""
 	local functionKeyword, localKeyword = getTokenText(node.functionKeyword), getTokenText(node.localKeyword)
 	local functionGenerics = getFunctionGenerics(node.body)
 	local functionParams = getFunctionParameters(node.body) -- need to handle varargs
