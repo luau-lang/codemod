@@ -4,7 +4,6 @@ local commonHelpers = require("./commonHelpers")
 local getLocal = commonHelpers.getLocal
 local getTokenText = commonHelpers.getTokenText
 local getNodeText = commonHelpers.getNodeText
-local getTrivia = commonHelpers.getTrivia
 
 local function isListTable(node: luau.AstExprTable): boolean
 	local entries = node.entries

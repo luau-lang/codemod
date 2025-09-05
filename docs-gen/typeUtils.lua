@@ -1,5 +1,6 @@
 local visitor = require("@std/syntax/visitor")
 local commonHelpers = require("./commonHelpers")
+local luau = require("@lute/luau")
 local getNodeText, getTrivia = commonHelpers.getNodeText, commonHelpers.getTrivia
 --[[
 getTypeSignature(typeNode: AstTypeAlias): string
