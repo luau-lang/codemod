@@ -33,7 +33,7 @@ local function getGeneric(node: luau.AstGenericType | luau.AstGenericPack)
 	return res
 end
 
-function getNodeText(node, apply: Visitor): string
+function getNodeText(node, apply: visitor.Visitor): string
 	local text = ""
 	if node then
 		local textVisitor = visitor.createVisitor()
