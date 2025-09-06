@@ -3,8 +3,18 @@ local luau = require("@lute/luau")
 
 type Visitor = (node: any, visitor: visitor.Visitor) -> boolean
 
+local function filter(tbl: { any }, predicate: (el: any) -> boolean)
+	local filtered = {}
+	for ind, el in tbl do
+		if predicate(el) then
+			filtered[ind] = el
+		end
+	end
+	return filtered
+end
+
 local function isAnonymousFunction(node: luau.AstExpr)
-	return node.tag == "function" and not node.name
+	return node.tag and node.tag == "function" and not node.name
 end
 
 local function isFunction(node: luau.AstExpr | luau.AstStat)
@@ -107,6 +117,7 @@ function trim(s)
 end
 
 return {
+	filter = filter,
 	trim = trim,
 	isAnonymousFunction = isAnonymousFunction,
 	isFunction = isFunction,
