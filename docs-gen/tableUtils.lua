@@ -5,6 +5,8 @@ local getLocal = commonHelpers.getLocal
 local getTokenText = commonHelpers.getTokenText
 local getNodeText = commonHelpers.getNodeText
 
+-- WANT TO ADD SUPPORT THAT ENSURES FORMATTING IS ACCURATE AND NOT NECESSARILY DERIVED FROM AST TRIVIA (since it will then be inconsistent)
+
 local function isListTable(node: luau.AstExprTable): boolean
 	local entries = node.entries
 	if not entries[1] then
@@ -40,7 +42,7 @@ local function getAnonymousTableSignature(node: luau.AstExprTable): string
 		return ""
 	end
 	-- if list, document name and type; a little tricker if anonymous since we need to infer type of list items
-	if isListTable(node) then
+	if isListTable(node) then -- TODO: add support for list table signatures
 		-- not sure how to handle this best
 		return ""
 	else -- else, document full table brackets and keys (not values) (keys)

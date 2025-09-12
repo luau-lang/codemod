@@ -43,6 +43,8 @@ local function test_getLocalTableSignature()
 	assert(trim(result) == expectedResult, `Incorrectly printed {expectedResult} as {result}`)
 end
 
+-- NEED TO TEST GETTING LIST TABLE SIGNATURE
+
 test_getTableKeySignature()
 test_getAnonymousTableSignature()
 test_getLocalTableSignature()
