@@ -5,6 +5,7 @@ local getTypeSignature = require("./typeUtils").getTypeSignature
 return {
 	FileVisitor = FileVisitor,
 	getFunctionSignature = getFunctionSignature,
+	getTableSignature = require("./tableUtils").getAnonymousTableSignature,
 	getTypeSignature = getTypeSignature,
 }
 

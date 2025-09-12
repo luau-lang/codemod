@@ -2,12 +2,10 @@ local visitor = require("@std/syntax/visitor")
 local parser = require("@std/syntax/parser")
 local prototypes = require("./prototype")
 
--- get
-
 local testVisitor = visitor.createVisitor()
 local function visitFunction(node: luau.AstStatLocalFunction | luau.AstStatFunction | luau.AstExprAnonymousFunction)
 	local nodeSig = prototypes.getFunctionSignature(node)
-	print(`Evaluated {if node.name then node.name.name.text else "anonymouse"} function as:`, nodeSig, "\n")
+	print(`Evaluated {if node.name then node.name.name.text else "anonymous"} function as:`, nodeSig, "\n")
 	return true
 end
 
@@ -80,15 +78,15 @@ print("\nReturned Vars:")
 for k, v in FileVisitor.returnedVars do
 	print(k, v.tag)
 end
-print("\nRequired Vars:")
-for k, v in FileVisitor.requiredVars do
-	print(k, v)
-end
-print("\nDependency Paths:")
-for k, v in FileVisitor.dependencies do
-	print(k, v)
+print("\nAnonymous Returns")
+for k, v in FileVisitor.anonymousReturns do
+	print(k, v.tag)
 end
 print("\nExport Paths:")
-for k, v in FileVisitor.exports do
+for k, v in FileVisitor.reExports do
 	print(k, v)
+end
+print("\nReturn Signature")
+for k, v in FileVisitor.returnExprs do
+	print(k, v.tag)
 end

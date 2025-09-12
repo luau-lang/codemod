@@ -10,6 +10,8 @@ local getTokenText, getPunctuated, getGeneric, getTypeText, getTrivia, getLocal,
 	commonHelpers.getLocal,
 	commonHelpers.getNodeText
 
+-- WANT TO ADD SUPPORT THAT ENSURES FORMATTING IS ACCURATE AND NOT NECESSARILY DERIVED FROM AST TRIVIA (since indenting will be super inconsistent in that case)
+
 --[[
 getFunctionSignature(functionDeclarationNode: AstStatFunction | AstStatLocalFunction): string
 
