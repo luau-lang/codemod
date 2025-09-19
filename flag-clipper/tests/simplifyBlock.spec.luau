@@ -231,11 +231,27 @@ local function test_simplifyAssignmentExpression()
 	local source = [[
 		variable = game:GetFastFlag("FlagName")
 		variable2 = not game:GetFastFlag("FlagName")
+		variable3 = (not game:GetFastFlag("FlagName"))
 	]]
 
 	local expected = [[
 		variable = true
 		variable2 = false
+		variable3 = false
+	]]
+
+	assert(apply(source, "FlagName", true) == expected)
+end
+
+local function test_simplifyDeclarationExpression()
+	local source = [[
+		local variable = not game:GetFastFlag("FlagName")
+		local variable2 = (not game:GetFastFlag("FlagName"))
+	]]
+
+	local expected = [[
+		local variable = false
+		local variable2 = false
 	]]
 
 	assert(apply(source, "FlagName", true) == expected)
@@ -349,6 +365,7 @@ return function()
 	test_simplifyIfAndElseIf()
 	test_simplifyBlockIntoNothing()
 	test_simplifyAssignmentExpression()
+	test_simplifyDeclarationExpression()
 	test_simplifyAssignmentExpressionFlagFalse()
 	test_simplifyAssignmentAfterBlockCollapse()
 	test_simplifyAssignmentWhenInitiallyAssignedToAValueAfterBlockCollapse()

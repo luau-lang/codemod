@@ -1,5 +1,4 @@
 local luau = require("@lute/luau")
-local printer = require("@std/syntax/printer")
 
 local TrackReferences = require("./TrackReferences")
 export type EvaluateContext = {
