@@ -38,6 +38,16 @@ local function expressionReferencesLocal(expression: luau.AstExpr, loc: luau.Ast
 	return isReferencingLocal
 end
 
+
+local function simplifyFlagAssignments(statement: luau.AstStatLocal | luau.AstStatAssign, ctx: evaluate.EvaluateContext)
+	for _, expression in statement.values do
+		local simplified = simplifyConstantExpression(ctx, expression.node)
+		if simplified then
+			expression.node = simplified
+		end
+	end
+end
+
 local function simplifyBlock(block: luau.AstStatBlock, ctx: evaluate.EvaluateContext): luau.AstStatBlock
 	local statements = {}
 
@@ -61,6 +71,8 @@ local function simplifyBlock(block: luau.AstStatBlock, ctx: evaluate.EvaluateCon
 			if shouldDelete then
 				continue
 			end
+
+			simplifyFlagAssignments(statement, ctx)
 
 			table.insert(statements, statement)
 		elseif statement.tag == "localfunction" then
@@ -93,12 +105,7 @@ local function simplifyBlock(block: luau.AstStatBlock, ctx: evaluate.EvaluateCon
 				continue
 			end
 
-			for _, expression in statement.values do
-				local simplified = simplifyConstantExpression(ctx, expression.node)
-				if simplified then
-					expression.node = simplified
-				end
-			end
+			simplifyFlagAssignments(statement, ctx)
 
 			table.insert(statements, statement)
 		elseif statement.tag == "return" then
