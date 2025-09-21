@@ -247,13 +247,15 @@ local function test_simplifyAssignmentExpression()
 	local source = [[
 		variable = game:GetFastFlag("FlagName")
 		variable2 = not game:GetFastFlag("FlagName")
-		variable3 = (not game:GetFastFlag("FlagName"))
+		variable3 = (game:GetFastFlag("FlagName"))
+		variable4 = (not game:GetFastFlag("FlagName"))
 	]]
 
 	local expected = [[
 		variable = true
 		variable2 = false
-		variable3 = false
+		variable3 = true
+		variable4 = false
 	]]
 
 	assert(apply(source, "FlagName", true) == expected)
