@@ -38,7 +38,8 @@ local function expressionReferencesLocal(expression: luau.AstExpr, loc: luau.Ast
 	return isReferencingLocal
 end
 
-local function simplifyFlagAssignments(statement: luau.AstStatLocal | luau.AstStatAssign, ctx: evaluate.EvaluateContext)
+-- Simplifies values in locals or assigns.
+local function simplifyPunctuated(statement: luau.AstStatLocal | luau.AstStatAssign, ctx: evaluate.EvaluateContext)
 	for _, expression in statement.values do
 		local simplified = simplifyConstantExpression(ctx, expression.node)
 		if simplified then
@@ -71,7 +72,7 @@ local function simplifyBlock(block: luau.AstStatBlock, ctx: evaluate.EvaluateCon
 				continue
 			end
 
-			simplifyFlagAssignments(statement, ctx)
+			simplifyPunctuated(statement, ctx)
 
 			table.insert(statements, statement)
 		elseif statement.tag == "localfunction" then
@@ -104,7 +105,7 @@ local function simplifyBlock(block: luau.AstStatBlock, ctx: evaluate.EvaluateCon
 				continue
 			end
 
-			simplifyFlagAssignments(statement, ctx)
+			simplifyPunctuated(statement, ctx)
 
 			table.insert(statements, statement)
 		elseif statement.tag == "return" then
