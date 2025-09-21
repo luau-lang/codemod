@@ -227,6 +227,22 @@ local function test_simplifyBlockIntoNothing()
 	assert(apply(source, "FlagName", false) == expected)
 end
 
+local function test_simplifyIfGroupCondition()
+	local source = [[
+		if (game:GetFastFlag("FlagName")) then
+			local x = 1
+		else
+			local x = 2
+		end
+	]]
+
+	local expected = [[
+			local x = 1
+	]]
+
+	assert(apply(source, "FlagName", true) == expected)
+end
+
 local function test_simplifyAssignmentExpression()
 	local source = [[
 		variable = game:GetFastFlag("FlagName")
@@ -243,7 +259,7 @@ local function test_simplifyAssignmentExpression()
 	assert(apply(source, "FlagName", true) == expected)
 end
 
-local function test_simplifyDeclarationExpression()
+local function test_simplifyLocalExpression()
 	local source = [[
 		local variable = not game:GetFastFlag("FlagName")
 		local variable2 = (not game:GetFastFlag("FlagName"))
@@ -363,9 +379,10 @@ return function()
 	test_simplifyElseIfIntermediateCondition()
 	test_simplifyElseIfMultipleLevels()
 	test_simplifyIfAndElseIf()
+	test_simplifyIfGroupCondition()
 	test_simplifyBlockIntoNothing()
 	test_simplifyAssignmentExpression()
-	test_simplifyDeclarationExpression()
+	test_simplifyLocalExpression()
 	test_simplifyAssignmentExpressionFlagFalse()
 	test_simplifyAssignmentAfterBlockCollapse()
 	test_simplifyAssignmentWhenInitiallyAssignedToAValueAfterBlockCollapse()
