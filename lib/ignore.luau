@@ -50,10 +50,11 @@ local function parseGlob(glob: string): Glob
 	-- i.e., anchor the pattern to the start
 	if glob:find("/") then
 		table.insert(lua_parts, "^")
+		idx = if strings.startsWith(glob, "./") then 3 else 2 -- special case of "./" prefix
 	else
 		-- If no leading slash, it can match anywhere, including after a directory.
 		-- This means it can start at the beginning of the string, or after a slash.
-		table.insert(lua_parts, "(^|%.*/)")
+		table.insert(lua_parts, "^%.*/?")
 		matchAnywhere = true
 	end
 
@@ -88,6 +89,9 @@ local function parseGlob(glob: string): Glob
 			-- Match any single character, except for /
 			table.insert(lua_parts, "[^/]")
 			idx = idx + 1
+		elseif char == "-" then
+			table.insert(lua_parts, "%-")
+			idx = idx + 1
 		else
 			table.insert(lua_parts, char)
 			idx = idx + 1
@@ -95,11 +99,7 @@ local function parseGlob(glob: string): Glob
 	end
 
 	-- Add the ending anchor if not already an implicit `.*` from `**`
-	if onlyMatchDirectories then
-		-- Match the directory itself or anything inside it
-		table.insert(lua_parts, "/.*$")
-	elseif glob:sub(-2) ~= "**" then
-		-- It's a file pattern, so anchor it to the end
+	if glob:sub(-2) ~= "**" then
 		table.insert(lua_parts, "$")
 	end
 
@@ -141,6 +141,9 @@ local function parseGitignore(filepath: string): GitignoreData
 end
 
 local function matchesGlob(glob: Glob, filepath: string, isDirectory: boolean): boolean
+	if glob.onlyMatchDirectories and not isDirectory then
+		return false
+	end
 	return filepath:match(glob.pattern) ~= nil
 end
 
@@ -149,6 +152,8 @@ local function isIgnored(ignoreData: GitignoreData, filepath: string, isDirector
 
 	-- TODO: compute relative path correctly
 	local relativePath = strings.removePrefix(filepath, ignoreData.location)
+	-- Remove leading slash if present (otherwise does nothing)
+	relativePath = strings.removePrefix(relativePath, "/")
 
 	for _, ignore in ignoreData.ignores do
 		if matchesGlob(ignore, relativePath, isDirectory) then
@@ -158,7 +163,7 @@ local function isIgnored(ignoreData: GitignoreData, filepath: string, isDirector
 		end
 	end
 
-	if isIgnored then
+	if ignored then
 		for _, whitelist in ignoreData.whitelists do
 			if matchesGlob(whitelist, filepath, isDirectory) then
 				matched = true
