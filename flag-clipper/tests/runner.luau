@@ -6,6 +6,7 @@ local function runner()
 		"./trackReferences.spec",
 		"./simplifyBlock.spec",
 		"./simplifyExpression.spec",
+		"./evaluate.spec",
 		"./e2e.spec",
 	}
 

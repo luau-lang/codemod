@@ -12,6 +12,11 @@ export type EvaluateContext = {
 local function evaluate(expression: luau.AstExpr, ctx: EvaluateContext): boolean?
 	-- Note: we explicitly don't process a constant boolean into it's value
 	-- This is because we don't want to end up simplifying unrelated expressions to the flag itself
+
+	if expression.tag == "group" then -- unpack groups
+		return evaluate(expression.expression, ctx)
+	end
+
 	if ctx.references:isReference(expression) then
 		return ctx.flagValue
 	end
