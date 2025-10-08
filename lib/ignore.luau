@@ -50,7 +50,7 @@ local function parseGlob(glob: string): Glob
 	-- i.e., anchor the pattern to the start
 	if glob:find("/") then
 		table.insert(lua_parts, "^")
-		idx = if strings.startsWith(glob, "./") then 3 else 2 -- special case of "./" prefix
+		idx = if strings.startsWith(glob, ".") then 3 else 2 -- special case of "." prefix
 	else
 		-- If no leading slash, it can match anywhere, including after a directory.
 		-- This means it can start at the beginning of the string, or after a slash.
