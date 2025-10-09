@@ -57,7 +57,8 @@ local function parseGlob(glob: string): Glob
 		-- If no leading slash, it can match anywhere, including after a directory.
 		-- This means it can start at the beginning of the string, or after a slash.
 		-- We can't match for two distinct patterns bc Lua lacks an OR pattern operator
-		-- Instead add unique marker we can check for in matchesGlob, indicating we match against the two distinct patterns 
+		-- Instead add unique marker we check for in matchesGlob, indicating we match
+		-- against the two distinct patterns: anchored at beginning, or after a slash
 		table.insert(lua_parts, "MATCH_ANYWHERE:")
 		matchAnywhere = true
 	end
