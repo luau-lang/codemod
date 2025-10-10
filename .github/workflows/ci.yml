@@ -36,6 +36,7 @@ jobs:
           lute require-resolver/tests/resolver_tracer.spec.luau
           lute convert-instance-requires/tests/aliases.spec.luau
           lute convert-instance-requires/tests/computeOptimalRequireString.spec.luau
+          lute remove-unused/tests/runner.luau
 
   check-format:
     runs-on: ubuntu-latest
