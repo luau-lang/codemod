@@ -107,7 +107,11 @@ local function parseGlob(glob: string): Glob
 		table.insert(lua_parts, "$")
 	end
 
-	return { pattern = table.concat(lua_parts), onlyMatchDirectories = onlyMatchDirectories, matchAnywhere = matchAnywhere }
+	return {
+		pattern = table.concat(lua_parts),
+		onlyMatchDirectories = onlyMatchDirectories,
+		matchAnywhere = matchAnywhere,
+	}
 end
 
 local function parseGitignoreContents(location: string, contents: string): GitignoreData
@@ -153,7 +157,7 @@ local function matchesGlob(glob: Glob, filepath: string, isDirectory: boolean): 
 	if glob.matchAnywhere then
 		local matchAtStart = filepath:match("^" .. glob.pattern) ~= nil
 		local matchAfterDir = filepath:match("/" .. glob.pattern) ~= nil
-		
+
 		return matchAtStart or matchAfterDir
 	else
 		return filepath:match(glob.pattern) ~= nil
