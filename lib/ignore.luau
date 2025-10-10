@@ -7,7 +7,7 @@ local strings = require("./strings")
 local IgnoreResolver = {}
 IgnoreResolver.__index = IgnoreResolver
 
-type Glob = { pattern: string, onlyMatchDirectories: boolean }
+type Glob = { pattern: string, onlyMatchDirectories: boolean, matchAnywhere: boolean }
 
 type GitignoreData = {
 	location: string,
@@ -50,11 +50,15 @@ local function parseGlob(glob: string): Glob
 	-- i.e., anchor the pattern to the start
 	if glob:find("/") then
 		table.insert(lua_parts, "^")
-		idx = 2
+		if glob:sub(1, 2) == "./" then
+			idx = 2
+		end
 	else
 		-- If no leading slash, it can match anywhere, including after a directory.
 		-- This means it can start at the beginning of the string, or after a slash.
-		table.insert(lua_parts, "(^|%.*/)")
+		-- We can't match for two distinct patterns bc Lua lacks an OR pattern operator
+		-- Instead add unique marker we check for in matchesGlob, indicating we match
+		-- against the two distinct patterns: anchored at beginning, or after a slash
 		matchAnywhere = true
 	end
 
@@ -89,6 +93,9 @@ local function parseGlob(glob: string): Glob
 			-- Match any single character, except for /
 			table.insert(lua_parts, "[^/]")
 			idx = idx + 1
+		elseif char == "-" then
+			table.insert(lua_parts, "%-")
+			idx = idx + 1
 		else
 			table.insert(lua_parts, char)
 			idx = idx + 1
@@ -100,7 +107,11 @@ local function parseGlob(glob: string): Glob
 		table.insert(lua_parts, "$")
 	end
 
-	return { pattern = table.concat(lua_parts), onlyMatchDirectories = onlyMatchDirectories }
+	return {
+		pattern = table.concat(lua_parts),
+		onlyMatchDirectories = onlyMatchDirectories,
+		matchAnywhere = matchAnywhere,
+	}
 end
 
 local function parseGitignoreContents(location: string, contents: string): GitignoreData
@@ -141,7 +152,16 @@ local function matchesGlob(glob: Glob, filepath: string, isDirectory: boolean): 
 	if glob.onlyMatchDirectories and not isDirectory then
 		return false
 	end
-	return filepath:match(glob.pattern) ~= nil
+	-- If the pattern is marked with matchAnywhere, we need to test
+	-- both: at start of path OR after any directory separator
+	if glob.matchAnywhere then
+		local matchAtStart = filepath:match("^" .. glob.pattern) ~= nil
+		local matchAfterDir = filepath:match("/" .. glob.pattern) ~= nil
+
+		return matchAtStart or matchAfterDir
+	else
+		return filepath:match(glob.pattern) ~= nil
+	end
 end
 
 local function isIgnored(ignoreData: GitignoreData, filepath: string, isDirectory: boolean)
@@ -158,7 +178,7 @@ local function isIgnored(ignoreData: GitignoreData, filepath: string, isDirector
 		end
 	end
 
-	if isIgnored then
+	if ignored then
 		for _, whitelist in ignoreData.whitelists do
 			if matchesGlob(whitelist, filepath, isDirectory) then
 				matched = true
