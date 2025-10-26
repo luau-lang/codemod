@@ -69,6 +69,7 @@ export type TrackReferences = setmetatable<TrackReferencesData, typeof(TrackRefe
 
 function TrackReferences.new(
 	flagName: string,
+	flagValue: boolean,
 	requireInfo: requireTracer.RequireTracerResult,
 	sourcemapData: sourcemap.SourcemapData?
 ): TrackReferences
@@ -80,13 +81,17 @@ function TrackReferences.new(
 	self._expressionTableData = {}
 	self._visitor = visitor.createVisitor()
 
+	self._compoundExpressions =
+		{} :: { [luau.AstExprBinary | luau.AstExprUnary | luau.AstExprGroup | luau.AstExprLocal]: boolean }
+	self._compoundExpressionLocals = {} :: { [luau.AstLocal]: boolean }
+
 	self._visitor.visitExpression = function(node: luau.AstExpr)
 		if isFlagAccess(node, flagName) then
 			self._expressions[node] = true
 		elseif isFlagFunction.isExprFlagFunction(node, flagName) then
 			self._expressions[node] = true
 		elseif isRequire(node) then
-			local moduleInfo = getModuleInfo(node, flagName, requireInfo, sourcemapData)
+			local moduleInfo = getModuleInfo(node, flagName, flagValue, requireInfo, sourcemapData)
 			if moduleInfo then
 				if moduleInfo.isFlagModule then
 					self._expressions[node] = true
@@ -96,6 +101,9 @@ function TrackReferences.new(
 			end
 		elseif node.tag == "local" then
 			if self._locals[node["local"]] then
+				if self._compoundExpressionLocals[node["local"]] ~= nil then
+					self._compoundExpressions[node] = self._compoundExpressionLocals[node["local"]]
+				end
 				self._expressions[node] = true
 			end
 			if self._localTableData[node["local"]] then
@@ -139,6 +147,66 @@ function TrackReferences.new(
 			end
 
 			self._expressionTableData[node] = tableData
+		elseif node.tag == "binary" or (node.tag == "group" and node.expression.tag == "binary") then -- local
+			local toEval = if node.tag == "group" then node.expression :: luau.AstExprBinary else node
+
+			if toEval.operator.text == "and" then
+				if self._expressions[toEval.lhsoperand] or self._expressions[toEval.rhsoperand] then
+					-- MYFlagVar and ...
+					-- can we evaluate this expression to: true/false
+					local conditionValue = flagValue
+					if self._expressions[toEval.lhsoperand] then
+						-- print("Evaluating", printer.printexpr(toEval.lhsoperand), self._compoundExpressions[toEval.lhsoperand])
+						conditionValue = if self._compoundExpressions[toEval.lhsoperand] ~= nil
+							then self._compoundExpressions[toEval.lhsoperand]
+							else conditionValue
+					else
+						-- print("Evaluating", printer.printexpr(toEval.rhsoperand), self._compoundExpressions[toEval.rhsoperand])
+						conditionValue = if self._compoundExpressions[toEval.rhsoperand] ~= nil
+							then self._compoundExpressions[toEval.rhsoperand]
+							else conditionValue
+					end
+					-- print("evaled as", conditionValue, printer.printexpr(node))
+					if conditionValue == false then -- can only simplify to constant if one of the operands is FALSE!
+						self._expressions[node] = true
+						self._compoundExpressions[node] = false -- value depends on what is in the rhs and lhs
+					end
+				end
+			elseif toEval.operator.text == "or" then
+				if self._expressions[toEval.lhsoperand] or self._expressions[toEval.rhsoperand] then
+					-- MYFlagVar or ...
+					-- can we evaluate this expression to: true/false
+					local conditionValue = flagValue
+					if self._expressions[toEval.lhsoperand] then
+						-- print("Evaluating", printer.printexpr(toEval.lhsoperand), self._compoundExpressions[toEval.lhsoperand])
+						conditionValue = if self._compoundExpressions[toEval.lhsoperand] ~= nil
+							then self._compoundExpressions[toEval.lhsoperand]
+							else conditionValue
+					else
+						-- print("Evaluating", printer.printexpr(toEval.rhsoperand), self._compoundExpressions[toEval.rhsoperand])
+						conditionValue = if self._compoundExpressions[toEval.rhsoperand] ~= nil
+							then self._compoundExpressions[toEval.rhsoperand]
+							else conditionValue
+					end
+
+					if conditionValue == true then
+						-- true and x => true
+						self._expressions[node] = true
+						self._compoundExpressions[node] = true
+						-- TO-DO: updates s.t value depends on what is in the rhs and lhs (like we do for AND statements above)
+					end
+				end
+			end
+		elseif node.tag == "unary" or (node.tag == "group" and node.expression.tag == "unary") then
+			local toEval = if node.tag == "group" then node.expression :: luau.AstExprUnary else node
+			if toEval.operator.text == "not" then
+				if self._expressions[toEval.operand] then
+					self._expressions[node] = true
+					self._compoundExpressions[node] = if self._compoundExpressions[toEval.operand] ~= nil
+						then not self._compoundExpressions[toEval.operand]
+						else not flagValue
+				end
+			end
 		end
 	end
 
@@ -151,6 +219,9 @@ function TrackReferences.new(
 			local value = node.values[idx].node
 			if self._expressions[value] then
 				self._locals[variable.node] = true
+				if self._compoundExpressions[value :: any] ~= nil then
+					self._compoundExpressionLocals[variable.node] = self._compoundExpressions[value :: any]
+				end
 			end
 
 			if self._expressionTableData[value] then
@@ -225,6 +296,7 @@ end
 function getModuleInfo(
 	expression: luau.AstExpr,
 	flagName: string,
+	flagValue: boolean,
 	requireInfo: requireTracer.RequireTracerResult,
 	sourcemapData: sourcemap.SourcemapData?
 ): ModuleInfo?
@@ -265,7 +337,7 @@ function getModuleInfo(
 		if returnedExpression then
 			requireInfo =
 				requireTracer.traceRequires(block, requirePath, fileResolver.createFileResolver(sourcemapData))
-			local references = TrackReferences.new(flagName, requireInfo, sourcemapData)
+			local references = TrackReferences.new(flagName, flagValue, requireInfo, sourcemapData)
 			references:visit(block)
 			result.tableData = references._expressionTableData[returnedExpression]
 		end
