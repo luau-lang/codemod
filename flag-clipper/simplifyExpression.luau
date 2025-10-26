@@ -65,7 +65,7 @@ local function simplifyTable(expression: luau.AstExprTable, ctx: evaluate.Evalua
 	local entries = {}
 	for _, field in expression.entries do
 		--- Remove fields from a table that directly reference the removed Flag
-		if ctx.references:isReference(field.value) then
+		if ctx.references:isReference(field.value) and ctx.references._compoundExpressions[field.value] == nil then -- this doesn't seem safe?
 			continue
 		end
 
@@ -90,8 +90,36 @@ local function simplifyTable(expression: luau.AstExprTable, ctx: evaluate.Evalua
 	return expression
 end
 
+local function simplifyCall(expression: luau.AstExprCall, ctx: evaluate.EvaluateContext)
+	-- we only care abt call args
+	local args = {}
+	for _, arg in expression.arguments do
+		--- Evaluate references to the flag if available, and replace the args to the call with the evaluation
+		local constantEvaluation = evaluate(arg.node, ctx)
+		if constantEvaluation ~= nil then
+			arg.node = createConstantBoolean(
+				constantEvaluation,
+				trivia.getLeadingTrivia(arg.node),
+				trivia.getTrailingTrivia(arg.node)
+			)
+		end
+
+		table.insert(args, arg)
+	end
+	expression.arguments = args
+	return expression
+end
+
 function simplify(expression: luau.AstExpr, ctx: evaluate.EvaluateContext): luau.AstExpr
-	if expression.tag == "binary" then
+	-- special case for calls (imo) that is not currently addressed:
+	-- local x = flag
+	-- func(x)
+	-- func(x) will not be simplified, :/
+	-- i think for consumers of a var that is derived from flag reference, the var reference should be simplified
+	-- in the above case, func(flagValue)
+	if expression.tag == "call" then -- add test cases for this new logic!
+		return simplifyCall(expression, ctx)
+	elseif expression.tag == "binary" then
 		return simplifyBinary(expression, ctx)
 	elseif expression.tag == "conditional" then
 		return simplifyConditional(expression, ctx)
