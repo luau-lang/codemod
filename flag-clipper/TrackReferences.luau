@@ -39,9 +39,16 @@ type TrackReferencesData = {
 	--- A set of AstLocals that are known to correspond to a flag access
 	--- The locals can be a constant reference, or a function definition
 	_locals: { [luau.AstLocal]: true },
+	-- The locals that reference compound flag expressions
+	_compoundExpressionLocals: { [luau.AstLocal]: true },
 	--- A set of expressions that are known to correspond to a flag access
 	--- This could be a local reference, or a require module
 	_expressions: { [luau.AstExpr]: true },
+	-- A set of compound expressions (x or y, x and y, not x, ...) that are known to correspond to a flag access.
+	_compoundExpressions: { [luau.AstExprBinary | luau.AstExprUnary | luau.AstExprGroup | luau.AstExprLocal]: boolean },
+
+	-- hmmm should I add support for functions too? idk seems a bit overhead
+
 	--- A set of global function names that are known to correspond to a flag access
 	--- Unlike flagLocalsSet, we do not track this via AstLocal reference, but just by the function name
 	_globalNames: { [string]: true },
@@ -271,6 +278,22 @@ end
 --- Either a direct reference, or an indirect reference via a local
 function TrackReferences.isReference(self: TrackReferences, expression: luau.AstExpr): boolean
 	return self._expressions[expression] == true
+end
+
+function TrackReferences.isCompoundReference(self: TrackReferences, expression: luau.AstExpr): boolean
+	return self._compoundExpressions[expression] ~= nil
+end
+
+function TrackReferences.isCompoundLocalReference(self: TrackReferences, astLocal: luau.AstLocal): boolean
+	return self._compoundExpressionLocals[astLocal] ~= nil
+end
+
+function TrackReferences.getCompoundReferenceValue(self: TrackReferences, expression: luau.AstExpr): boolean
+	return self._compoundExpressions[expression]
+end
+
+function TrackReferences.getCompoundLocalReferenceValue(self: TrackReferences, astLocal: luau.AstLocal): boolean
+	return self._compoundExpressionLocals[astLocal]
 end
 
 local function getReturnedExpression(body: luau.AstStatBlock): luau.AstExpr?

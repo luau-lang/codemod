@@ -65,7 +65,7 @@ local function simplifyTable(expression: luau.AstExprTable, ctx: evaluate.Evalua
 	local entries = {}
 	for _, field in expression.entries do
 		--- Remove fields from a table that directly reference the removed Flag
-		if ctx.references:isReference(field.value) and ctx.references._compoundExpressions[field.value] == nil then -- this doesn't seem safe?
+		if ctx.references:isReference(field.value) and not ctx.references:isCompoundReference(field.value) then -- this doesn't seem safe?
 			continue
 		end
 
