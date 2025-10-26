@@ -104,6 +104,26 @@ local function test_setKeyToFalseInTable()
 	assert(printSimplify(source) == expected)
 end
 
+local function test_simplifyFlagReferenceInCall()
+	local source = "print(game:GetFastFlag('FlagName'))"
+	local expected = "print(true)"
+
+	assert(printSimplify(source) == expected)
+end
+
+local function test_simplifyCompoundFlagReferenceInCall()
+	local function case(str: string, exp: string)
+		local source = `print({str})`
+		local expected = `print({exp})`
+
+		assert(printSimplify(source) == expected)
+	end
+
+	case("not game:GetFastFlag('FlagName')", "false")
+	case("game:GetFastFlag('FlagName') or arbitraryCondition", "true")
+	case("not game:GetFastFlag('FlagName') and arbitraryCondition", "false")
+end
+
 return function()
 	test_simplifyBinary()
 	-- test_simplifyUnary()
@@ -117,4 +137,6 @@ return function()
 	test_simplifyElseIfMultipleLevels()
 	test_removeKeyFromTable()
 	test_setKeyToFalseInTable()
+	test_simplifyFlagReferenceInCall()
+	test_simplifyCompoundFlagReferenceInCall()
 end
