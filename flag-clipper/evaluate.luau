@@ -18,7 +18,9 @@ local function evaluate(expression: luau.AstExpr, ctx: EvaluateContext): boolean
 	end
 
 	if ctx.references:isReference(expression) then
-		return ctx.flagValue
+		return if ctx.references._compoundExpressions[expression] ~= nil
+			then ctx.references._compoundExpressions[expression]
+			else ctx.flagValue
 	end
 
 	if
@@ -26,7 +28,9 @@ local function evaluate(expression: luau.AstExpr, ctx: EvaluateContext): boolean
 		and expression.operator.text == "not"
 		and ctx.references:isReference(expression.operand)
 	then
-		return not ctx.flagValue
+		return if ctx.references._compoundExpressions[expression] ~= nil
+			then ctx.references._compoundExpressions[expression]
+			else not ctx.flagValue
 	end
 
 	return nil
