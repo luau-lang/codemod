@@ -15,7 +15,7 @@ local function apply(source: string, flagName: string?, flagValue: boolean?)
 	flagName = flagName or "FlagName"
 	flagValue = if flagValue ~= nil then flagValue else true
 
-	local references = TrackReferences.new(flagName or "FlagName", {})
+	local references = TrackReferences.new(flagName or "FlagName", flagValue :: boolean, {})
 
 	local context: evaluate.EvaluateContext = {
 		flagName = flagName,
@@ -267,12 +267,9 @@ local function test_simplifyLocalExpression()
 		local variable2 = (not game:GetFastFlag("FlagName"))
 	]]
 
-	local expected = [[
-		local variable = false
-		local variable2 = false
-	]]
+	local expected = ""
 
-	assert(apply(source, "FlagName", true) == expected)
+	assert(apply(source, "FlagName", true):gsub("%s+", "") == expected)
 end
 
 local function test_simplifyAssignmentExpressionFlagFalse()

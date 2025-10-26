@@ -61,7 +61,7 @@ local function transform(ctx: codemod.Context<Options>)
 	local block = result.root
 
 	local requireInfo = requireTracer.traceRequires(block, ctx.path, fileResolver.createFileResolver(SourcemapData))
-	local references = TrackReferences.new(ctx.options.flag, requireInfo, SourcemapData)
+	local references = TrackReferences.new(ctx.options.flag, ctx.options.value, requireInfo, SourcemapData)
 	references:visit(block)
 
 	-- Early check: if is a flag module, mark for deletion

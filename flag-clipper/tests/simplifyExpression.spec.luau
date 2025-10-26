@@ -7,7 +7,7 @@ local TrackReferences = require("../TrackReferences")
 
 local function printSimplify(source: string)
 	local expression = parser.parseexpr(source)
-	local references = TrackReferences.new("FlagName", {})
+	local references = TrackReferences.new("FlagName", true, {})
 	references:_visitExpressionForTesting(expression)
 
 	local context: evaluate.EvaluateContext = {

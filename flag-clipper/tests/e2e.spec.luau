@@ -143,6 +143,56 @@ local function test_overallSingleFile()
 	assert(apply(source) == expected)
 end
 
+local function test_simplifyUseOfCompoundFlagReference()
+	local source = [[
+		local x = not game:GetFastFlag("FlagName")
+		local y = game:GetFastFlag("FlagName") or arbitraryCondition
+		local z = game:GetFastFlag("FlagName") and arbitraryCondition
+		local zz = not game:GetFastFlag("FlagName") or arbitraryCondition
+
+		if x then
+			print("a")
+		end
+		if not x then
+			print("b")
+		end
+		if y then
+			print("c")
+		end
+		if not y then
+			print("d")
+		end
+		if z then
+			print("e")
+		end
+		if zz then
+			print("f")
+		end
+	]]
+	local expected = [[
+		local z = arbitraryCondition
+		local zz = arbitraryCondition
+			print("b")
+			print("c")
+		if z then
+			print("e")
+		end
+		if zz then
+			print("f")
+		end
+	]]
+	assert(apply(source, "FlagName", true) == expected)
+end
+
+--[[
+only reallllyyyy problematic edge case I can see with the new logic is where he vars = to compound flag bools are used thereafter
+Buttttt, we only simplify if they will be simplified to a constant? and I can't imagine they will be used for many things?
+Ways to handle:
+	- if used in a call, replace w/ the constant evaluation
+	- if re-assigned... tricky, we might have to not remove these :/ (but that is such weird logic to include...)
+	- how else to handle? what other cases...
+]]
+
 local function test_compoundCondition()
 	local source = [[
 		if game:GetFastFlag("FlagName") or value then
@@ -357,6 +407,7 @@ end
 
 return function()
 	test_markFlagModuleForDeletion()
+	test_simplifyUseOfCompoundFlagReference()
 	test_compoundCondition()
 	test_compoundConditionWithUnary()
 	test_callWithPseudoTernary()
