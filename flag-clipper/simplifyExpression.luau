@@ -65,7 +65,7 @@ local function simplifyTable(expression: luau.AstExprTable, ctx: evaluate.Evalua
 	local entries = {}
 	for _, field in expression.entries do
 		--- Remove fields from a table that directly reference the removed Flag
-		if ctx.references:isReference(field.value) and not ctx.references:isCompoundReference(field.value) then -- this doesn't seem safe?
+		if ctx.references:isReference(field.value) and not ctx.references:isCompoundReference(field.value) then
 			continue
 		end
 
@@ -111,13 +111,7 @@ local function simplifyCall(expression: luau.AstExprCall, ctx: evaluate.Evaluate
 end
 
 function simplify(expression: luau.AstExpr, ctx: evaluate.EvaluateContext): luau.AstExpr
-	-- special case for calls (imo) that is not currently addressed:
-	-- local x = flag
-	-- func(x)
-	-- func(x) will not be simplified, :/
-	-- i think for consumers of a var that is derived from flag reference, the var reference should be simplified
-	-- in the above case, func(flagValue)
-	if expression.tag == "call" then -- add test cases for this new logic!
+	if expression.tag == "call" then
 		return simplifyCall(expression, ctx)
 	elseif expression.tag == "binary" then
 		return simplifyBinary(expression, ctx)

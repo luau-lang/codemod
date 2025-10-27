@@ -15,7 +15,7 @@ local function apply(source: string, flagName: string?, flagValue: boolean?)
 	flagName = flagName or "FlagName"
 	flagValue = if flagValue ~= nil then flagValue else true
 
-	local references = TrackReferences.new(flagName or "FlagName", flagValue :: boolean, {})
+	local references = TrackReferences.new(flagName or "FlagName", flagValue, {})
 
 	local context: evaluate.EvaluateContext = {
 		flagName = flagName,
@@ -268,8 +268,7 @@ local function test_simplifyLocalExpression()
 	]]
 
 	local expected = ""
-
-	assert(apply(source, "FlagName", true):gsub("%s+", "") == expected)
+	assert(apply(source, "FlagName", true):gsub("%s+", "") == expected) -- using gsub to avoid whitespace difference from leftover trivia
 end
 
 local function test_simplifyAssignmentExpressionFlagFalse()

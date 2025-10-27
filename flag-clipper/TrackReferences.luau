@@ -163,44 +163,39 @@ function TrackReferences.new(
 					-- can we evaluate this expression to: true/false
 					local conditionValue = flagValue
 					if self._expressions[toEval.lhsoperand] then
-						-- print("Evaluating", printer.printexpr(toEval.lhsoperand), self._compoundExpressions[toEval.lhsoperand])
 						conditionValue = if self._compoundExpressions[toEval.lhsoperand] ~= nil
 							then self._compoundExpressions[toEval.lhsoperand]
 							else conditionValue
 					else
-						-- print("Evaluating", printer.printexpr(toEval.rhsoperand), self._compoundExpressions[toEval.rhsoperand])
 						conditionValue = if self._compoundExpressions[toEval.rhsoperand] ~= nil
 							then self._compoundExpressions[toEval.rhsoperand]
 							else conditionValue
 					end
-					-- print("evaled as", conditionValue, printer.printexpr(node))
-					if conditionValue == false then -- can only simplify to constant if one of the operands is FALSE!
+					if conditionValue == false then
+						-- false and x / x and false => false
 						self._expressions[node] = true
-						self._compoundExpressions[node] = false -- value depends on what is in the rhs and lhs
+						self._compoundExpressions[node] = false
 					end
 				end
 			elseif toEval.operator.text == "or" then
 				if self._expressions[toEval.lhsoperand] or self._expressions[toEval.rhsoperand] then
-					-- MYFlagVar or ...
+					-- MyFlagVar or ...
 					-- can we evaluate this expression to: true/false
 					local conditionValue = flagValue
 					if self._expressions[toEval.lhsoperand] then
-						-- print("Evaluating", printer.printexpr(toEval.lhsoperand), self._compoundExpressions[toEval.lhsoperand])
 						conditionValue = if self._compoundExpressions[toEval.lhsoperand] ~= nil
 							then self._compoundExpressions[toEval.lhsoperand]
 							else conditionValue
 					else
-						-- print("Evaluating", printer.printexpr(toEval.rhsoperand), self._compoundExpressions[toEval.rhsoperand])
 						conditionValue = if self._compoundExpressions[toEval.rhsoperand] ~= nil
 							then self._compoundExpressions[toEval.rhsoperand]
 							else conditionValue
 					end
 
 					if conditionValue == true then
-						-- true and x => true
+						-- true or x / x or true => true
 						self._expressions[node] = true
 						self._compoundExpressions[node] = true
-						-- TO-DO: updates s.t value depends on what is in the rhs and lhs (like we do for AND statements above)
 					end
 				end
 			end
