@@ -184,6 +184,23 @@ local function test_simplifyUseOfCompoundFlagReference()
 	assert(apply(source, "FlagName", true) == expected)
 end
 
+local function test_simplifyCompoundReferenceTableEntry()
+	local source = [[
+		local x = { myProp = game:GetFastFlag('FlagName') and someCondition }
+		local y = { myProp = game:GetFastFlag('FlagName') or someCondition }
+		local z = { myProp = not game:GetFastFlag('FlagName') or someCondition }
+		local zz = { myProp = not game:GetFastFlag('FlagName') and someCondition }
+	]]
+	local expected = [[
+		local x = { myProp = someCondition }
+		local y = { myProp = true }
+		local z = { myProp = someCondition }
+		local zz = { myProp = false }
+	]]
+	print(apply(source, "FlagName", true))
+	assert(apply(source, "FlagName", true) == expected)
+end
+
 --[[
 only reallllyyyy problematic edge case I can see with the new logic is where he vars = to compound flag bools are used thereafter
 Buttttt, we only simplify if they will be simplified to a constant? and I can't imagine they will be used for many things?
@@ -408,6 +425,7 @@ end
 return function()
 	test_markFlagModuleForDeletion()
 	test_simplifyUseOfCompoundFlagReference()
+	test_simplifyCompoundReferenceTableEntry()
 	test_compoundCondition()
 	test_compoundConditionWithUnary()
 	test_callWithPseudoTernary()
