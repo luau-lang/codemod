@@ -19,6 +19,15 @@ local function printSimplify(source: string)
 	return printer.printexpr(simplify(expression, context))
 end
 
+local function case(str: string, exp: string)
+	local source = `{str}`
+	local expected = `{exp}`
+
+	local res = printSimplify(source)
+
+	assert(res == expected, `{res} ~= {expected}`)
+end
+
 local function test_simplifyBinary()
 	-- TODO: we don't do normal evaluations anymore
 	-- assert(printSimplify("x and true") == "x ")
@@ -105,23 +114,13 @@ local function test_setKeyToFalseInTable()
 end
 
 local function test_simplifyFlagReferenceInCall()
-	local source = "print(game:GetFastFlag('FlagName'))"
-	local expected = "print(true)"
-
-	assert(printSimplify(source) == expected)
+	case("print(game:GetFastFlag('FlagName'))", "print(true)")
 end
 
 local function test_simplifyCompoundFlagReferenceInCall()
-	local function case(str: string, exp: string)
-		local source = `print({str})`
-		local expected = `print({exp})`
-
-		assert(printSimplify(source) == expected)
-	end
-
-	case("not game:GetFastFlag('FlagName')", "false")
-	case("game:GetFastFlag('FlagName') or arbitraryCondition", "true")
-	case("not game:GetFastFlag('FlagName') and arbitraryCondition", "false")
+	case("print(not game:GetFastFlag('FlagName'))", "print(false)")
+	case("print(game:GetFastFlag('FlagName') or arbitraryCondition)", "print(true)")
+	case("print(not game:GetFastFlag('FlagName') and arbitraryCondition)", "print(false)")
 end
 
 return function()
