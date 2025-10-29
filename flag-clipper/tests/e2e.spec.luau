@@ -201,15 +201,6 @@ local function test_simplifyCompoundReferenceTableEntry()
 	assert(apply(source, "FlagName", true) == expected)
 end
 
---[[
-only reallllyyyy problematic edge case I can see with the new logic is where he vars = to compound flag bools are used thereafter
-Buttttt, we only simplify if they will be simplified to a constant? and I can't imagine they will be used for many things?
-Ways to handle:
-	- if used in a call, replace w/ the constant evaluation
-	- if re-assigned... tricky, we might have to not remove these :/ (but that is such weird logic to include...)
-	- how else to handle? what other cases...
-]]
-
 local function test_compoundCondition()
 	local source = [[
 		if game:GetFastFlag("FlagName") or value then
