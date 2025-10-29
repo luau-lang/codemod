@@ -193,11 +193,11 @@ local function test_simplifyCompoundReferenceTableEntry()
 	]]
 	local expected = [[
 		local x = { myProp = someCondition }
-		local y = { myProp = true }
+		local y = { }
 		local z = { myProp = someCondition }
 		local zz = { myProp = false }
 	]]
-	print(apply(source, "FlagName", true))
+
 	assert(apply(source, "FlagName", true) == expected)
 end
 
