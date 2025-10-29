@@ -42,7 +42,6 @@ type TrackReferencesData = {
 	--- A set of expressions that are known to correspond to a flag access
 	--- This could be a local reference, or a require module
 	_expressions: { [luau.AstExpr]: boolean },
-	-- hmmm should I add support for functions too? idk seems a bit overhead
 
 	--- A set of global function names that are known to correspond to a flag access
 	--- Unlike flagLocalsSet, we do not track this via AstLocal reference, but just by the function name
@@ -77,16 +76,11 @@ function TrackReferences.new(
 ): TrackReferences
 	local self = {}
 	self._locals = {}
-	self._localExemptions = {}
 	self._expressions = {}
 	self._globalNames = {}
 	self._localTableData = {}
 	self._expressionTableData = {}
 	self._visitor = visitor.createVisitor()
-
-	self._compoundExpressions =
-		{} :: { [luau.AstExprBinary | luau.AstExprUnary | luau.AstExprGroup | luau.AstExprLocal]: boolean }
-	self._compoundExpressionLocals = {} :: { [luau.AstLocal]: boolean }
 
 	self._visitor.visitExpression = function(node: luau.AstExpr)
 		if isFlagAccess(node, flagName) then
