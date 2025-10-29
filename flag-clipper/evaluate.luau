@@ -21,7 +21,6 @@ local function evaluate(expression: luau.AstExpr, ctx: EvaluateContext): boolean
 		return ctx.references:getReferenceValue(expression)
 	end
 
-
 	return nil
 end
 

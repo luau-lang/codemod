@@ -20,15 +20,19 @@ local function simplifyBinary(expression: luau.AstExprBinary, ctx: evaluate.Eval
 	if expression.operator.text == "and" then
 		if isConstantTrueValue(expression.lhsoperand, ctx) then
 			-- true and x => x
+			modified.setCompound(expression.rhsoperand)
 			return simplify(expression.rhsoperand, ctx)
 		elseif isConstantFalseValue(expression.lhsoperand, ctx) then
 			-- false and x => false
+			modified.setCompound(expression.lhsoperand)
 			return simplify(expression.lhsoperand, ctx)
 		elseif isConstantTrueValue(expression.rhsoperand, ctx) then
 			-- x and true => x
+			modified.setCompound(expression.lhsoperand)
 			return simplify(expression.lhsoperand, ctx)
 		elseif isConstantFalseValue(expression.rhsoperand, ctx) then
 			-- x and false => false
+			modified.setCompound(expression.rhsoperand)
 			return simplify(expression.rhsoperand, ctx)
 		end
 	elseif expression.operator.text == "or" then
@@ -45,15 +49,19 @@ local function simplifyBinary(expression: luau.AstExprBinary, ctx: evaluate.Eval
 
 		if isConstantTrueValue(expression.lhsoperand, ctx) then
 			-- true or x => true
+			modified.setCompound(expression.lhsoperand)
 			return simplify(expression.lhsoperand, ctx)
 		elseif isConstantFalseValue(expression.lhsoperand, ctx) then
 			-- false or x => x
+			modified.setCompound(expression.rhsoperand)
 			return simplify(expression.rhsoperand, ctx)
 		elseif isConstantTrueValue(expression.rhsoperand, ctx) then
 			-- x or true => true
+			modified.setCompound(expression.rhsoperand)
 			return simplify(expression.rhsoperand, ctx)
 		elseif isConstantFalseValue(expression.rhsoperand, ctx) then
 			-- x or false => x
+			modified.setCompound(expression.lhsoperand)
 			return simplify(expression.lhsoperand, ctx)
 		end
 	end
@@ -65,7 +73,10 @@ local function simplifyTable(expression: luau.AstExprTable, ctx: evaluate.Evalua
 	local entries = {}
 	for _, field in expression.entries do
 		--- Remove fields from a table that directly reference the removed Flag
-		if ctx.references:isReference(field.value) and not ctx.references:isCompoundReference(field.value) then
+		if
+			ctx.references:isReference(field.value)
+			and not (ctx.references:isCompoundReference(field.value) or modified.isCompound(field.value))
+		then
 			continue
 		end
 
