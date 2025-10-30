@@ -43,24 +43,7 @@ local function setModified(expression: luau.AstExpr)
 	(expression :: any)._modified = true
 end
 
--- Check whether the given expression is marked as compound
--- explicitly to avoid removing table entries that have had their values simplified to a direct flag reference
--- for ex, suppose flag is true and we have: local table = { field = flag and something }
--- expressions simplify from inside out (post-order)
--- so we get to simplifying the table itself, we have: { field = flag }
--- normally, these are removed but bc value was originally `flag and something` we want to keep entry
--- so, we provide a unique marker to catch these cases
-local function isCompound(expression: luau.AstExpr): boolean
-	return (expression :: any)._compound == true
-end
-
-local function setCompound(expression: luau.AstExpr)
-	(expression :: any)._compound = true
-end
-
 return {
 	isModified = isModified,
 	setModified = setModified,
-	isCompound = isCompound,
-	setCompound = setCompound,
 }

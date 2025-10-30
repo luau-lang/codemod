@@ -1,4 +1,5 @@
 local luau = require("@lute/luau")
+local printer = require("@std/syntax/printer")
 
 local createConstantBoolean = require("./createConstantBoolean")
 local evaluate = require("./evaluate")
@@ -20,19 +21,19 @@ local function simplifyBinary(expression: luau.AstExprBinary, ctx: evaluate.Eval
 	if expression.operator.text == "and" then
 		if isConstantTrueValue(expression.lhsoperand, ctx) then
 			-- true and x => x
-			modified.setCompound(expression.rhsoperand)
+			ctx.references._simplifiedBinaries[expression.rhsoperand] = true
 			return simplify(expression.rhsoperand, ctx)
 		elseif isConstantFalseValue(expression.lhsoperand, ctx) then
 			-- false and x => false
-			modified.setCompound(expression.lhsoperand)
+			ctx.references._simplifiedBinaries[expression.lhsoperand] = true
 			return simplify(expression.lhsoperand, ctx)
 		elseif isConstantTrueValue(expression.rhsoperand, ctx) then
 			-- x and true => x
-			modified.setCompound(expression.lhsoperand)
+			ctx.references._simplifiedBinaries[expression.lhsoperand] = true
 			return simplify(expression.lhsoperand, ctx)
 		elseif isConstantFalseValue(expression.rhsoperand, ctx) then
 			-- x and false => false
-			modified.setCompound(expression.rhsoperand)
+			ctx.references._simplifiedBinaries[expression.rhsoperand] = true
 			return simplify(expression.rhsoperand, ctx)
 		end
 	elseif expression.operator.text == "or" then
@@ -41,27 +42,29 @@ local function simplifyBinary(expression: luau.AstExprBinary, ctx: evaluate.Eval
 		-- We can check if 'x' is modified, and then simplify it further as a pseudo-ternary
 		if modified.isModified(expression.lhsoperand) then
 			if isConstantFalseValue(expression.lhsoperand, ctx) then
+				ctx.references._simplifiedBinaries[expression.rhsoperand] = true
 				return expression.rhsoperand
 			else
+				ctx.references._simplifiedBinaries[expression.lhsoperand] = true
 				return expression.lhsoperand
 			end
 		end
 
 		if isConstantTrueValue(expression.lhsoperand, ctx) then
 			-- true or x => true
-			modified.setCompound(expression.lhsoperand)
+			ctx.references._simplifiedBinaries[expression.lhsoperand] = true
 			return simplify(expression.lhsoperand, ctx)
 		elseif isConstantFalseValue(expression.lhsoperand, ctx) then
 			-- false or x => x
-			modified.setCompound(expression.rhsoperand)
+			ctx.references._simplifiedBinaries[expression.rhsoperand] = true
 			return simplify(expression.rhsoperand, ctx)
 		elseif isConstantTrueValue(expression.rhsoperand, ctx) then
 			-- x or true => true
-			modified.setCompound(expression.rhsoperand)
+			ctx.references._simplifiedBinaries[expression.rhsoperand] = true
 			return simplify(expression.rhsoperand, ctx)
 		elseif isConstantFalseValue(expression.rhsoperand, ctx) then
 			-- x or false => x
-			modified.setCompound(expression.lhsoperand)
+			ctx.references._simplifiedBinaries[expression.lhsoperand] = true
 			return simplify(expression.lhsoperand, ctx)
 		end
 	end
@@ -75,7 +78,7 @@ local function simplifyTable(expression: luau.AstExprTable, ctx: evaluate.Evalua
 		--- Remove fields from a table that directly reference the removed Flag
 		if
 			ctx.references:isReference(field.value)
-			and not (ctx.references:isCompoundReference(field.value) or modified.isCompound(field.value))
+			and not (ctx.references:isCompoundReference(field.value) or ctx.references._simplifiedBinaries[field.value])
 		then
 			continue
 		end

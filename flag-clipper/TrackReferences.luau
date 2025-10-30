@@ -43,6 +43,15 @@ type TrackReferencesData = {
 	--- This could be a local reference, or a require module
 	_expressions: { [luau.AstExpr]: boolean },
 
+	-- Cache for simplified binary expressions explicitly to avoid 
+	-- removing table entries that have had their values simplified to a direct flag reference
+	-- for ex, suppose flag is true and we have: local table = { field = flag and something }
+	-- expressions simplify from inside out (post-order)
+	-- so we get to simplifying the table itself, we have: { field = flag }
+	-- normally, these are removed but bc value was originally `flag and something` we want to keep entry
+	-- so, we use this cache to catch such cases
+	_simplifiedBinaries: { [luau.AstExpr]: true },
+
 	--- A set of global function names that are known to correspond to a flag access
 	--- Unlike flagLocalsSet, we do not track this via AstLocal reference, but just by the function name
 	_globalNames: { [string]: true },
@@ -80,6 +89,7 @@ function TrackReferences.new(
 	self._globalNames = {}
 	self._localTableData = {}
 	self._expressionTableData = {}
+	self._simplifiedBinaries = {}
 	self._visitor = visitor.createVisitor()
 
 	self._visitor.visitExpression = function(node: luau.AstExpr)
@@ -145,35 +155,12 @@ function TrackReferences.new(
 			local toEval = if node.tag == "group" then node.expression :: luau.AstExprBinary else node
 
 			if toEval.operator.text == "and" then
-				if self._expressions[toEval.lhsoperand] ~= nil or self._expressions[toEval.rhsoperand] ~= nil then
-					-- MYFlagVar and ...
-					-- can we evaluate this expression to: true/false
-					local conditionValue = flagValue
-					if self._expressions[toEval.lhsoperand] ~= nil then
-						conditionValue = self._expressions[toEval.lhsoperand]
-					else
-						conditionValue = self._expressions[toEval.rhsoperand]
-					end
-					if conditionValue == false then
-						-- false and x / x and false => false
-						self._expressions[node] = false
-					end
+				if self._expressions[toEval.lhsoperand] == false or self._expressions[toEval.rhsoperand] == false then
+					self._expressions[node] = false
 				end
 			elseif toEval.operator.text == "or" then
-				if self._expressions[toEval.lhsoperand] ~= nil or self._expressions[toEval.rhsoperand] ~= nil then
-					-- MyFlagVar or ...
-					-- can we evaluate this expression to: true/false
-					local conditionValue = flagValue
-					if self._expressions[toEval.lhsoperand] ~= nil then
-						conditionValue = self._expressions[toEval.lhsoperand]
-					else
-						conditionValue = self._expressions[toEval.rhsoperand]
-					end
-
-					if conditionValue == true then
-						-- true or x / x or true => true
-						self._expressions[node] = true
-					end
+				if self._expressions[toEval.lhsoperand] == true or self._expressions[toEval.rhsoperand] == true then
+					self._expressions[node] = true
 				end
 			end
 		elseif node.tag == "unary" or (node.tag == "group" and node.expression.tag == "unary") then
