@@ -36,7 +36,7 @@ type TableData = {
 }
 
 type TrackReferencesData = {
-	--- A set of AstLocals that are known to correspond to a flag access
+	--- A set of AstLocals that are known to correspond to a flag access or an expression containing a flag which simplifies to a boolean literal
 	--- The locals can be a constant reference, or a function definition
 	_locals: { [luau.AstLocal]: boolean },
 	--- A set of expressions that are known to correspond to a flag access
