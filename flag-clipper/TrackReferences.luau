@@ -43,7 +43,7 @@ type TrackReferencesData = {
 	--- This could be a local reference, or a require module
 	_expressions: { [luau.AstExpr]: boolean },
 
-	-- Cache for simplified binary expressions explicitly to avoid 
+	-- Cache for simplified binary expressions explicitly to avoid
 	-- removing table entries that have had their values simplified to a direct flag reference
 	-- for ex, suppose flag is true and we have: local table = { field = flag and something }
 	-- expressions simplify from inside out (post-order)
