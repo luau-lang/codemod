@@ -262,17 +262,21 @@ end
 local function test_psuedoTernaryFlagAccess()
 	local block = parser.parse([[
 		local x = game:DefineFastFlag("FlagName") and (game:DefineFastFlag("FlagName") or abitraryCondition)
+		local y = not game:DefineFastFlag("FlagName") or (not game:DefineFastFlag("FlagName") and arbitraryCondition)
 	]])
 
-	assert(#block.statements == 1)
+	assert(#block.statements == 2)
 
-	local psuedoTernary = block.statements[1].values[1].node
+	local a = block.statements[1].values[1].node
+	local b = block.statements[2].values[1].node
 
 	local references = TrackReferences.new("FlagName", true, {})
 	references:visit(block)
 
-	assert(references:isReference(psuedoTernary) == true)
-	assert(references:getReferenceValue(psuedoTernary) == true)
+	assert(references:isReference(a) == true)
+	assert(references:getReferenceValue(a) == true)
+	assert(references:isReference(b) == true)
+	assert(references:getReferenceValue(b) == false)
 end
 
 local function test_falsePositiveCompoundFlagAccess()
@@ -282,18 +286,21 @@ local function test_falsePositiveCompoundFlagAccess()
 	local block = parser.parse([[
 		local x = game:DefineFastFlag("FlagName") and arbitraryCondition
 		local y = not game:DefineFastFlag("FlagName") or arbitraryCondition
+		local z = game:DefineFastFlag("FlagName") and not game:DefineFastFlag("FlagName") or arbitraryCondition
 	]])
 
-	assert(#block.statements == 2)
+	assert(#block.statements == 3)
 
 	local andFlagAccess = block.statements[1].values[1].node
 	local orFlagAccess = block.statements[2].values[1].node
+	local psuedoTernaryFlagAccess = block.statements[3].values[1].node
 
 	local references = TrackReferences.new("FlagName", true, {})
 	references:visit(block)
 
 	assert(references:isReference(andFlagAccess) == false)
 	assert(references:isReference(orFlagAccess) == false)
+	assert(references:isReference(psuedoTernaryFlagAccess) == false)
 end
 
 return function()
