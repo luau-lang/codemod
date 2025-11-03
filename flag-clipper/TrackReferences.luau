@@ -157,10 +157,18 @@ function TrackReferences.new(
 			if toEval.operator.text == "and" then
 				if self._expressions[toEval.lhsoperand] == false or self._expressions[toEval.rhsoperand] == false then
 					self._expressions[node] = false
+				elseif self._expressions[toEval.lhsoperand] == true then
+					self._expressions[node] = self._expressions[toEval.rhsoperand]
+				elseif self._expressions[toEval.rhsoperand] == true then
+					self._expressions[node] = self._expressions[toEval.lhsoperand]
 				end
 			elseif toEval.operator.text == "or" then
 				if self._expressions[toEval.lhsoperand] == true or self._expressions[toEval.rhsoperand] == true then
 					self._expressions[node] = true
+				elseif self._expressions[toEval.lhsoperand] == false then
+					self._expressions[node] = self._expressions[toEval.rhsoperand]
+				elseif self._expressions[toEval.rhsoperand] == false then
+					self._expressions[node] = self._expressions[toEval.lhsoperand]
 				end
 			end
 		elseif node.tag == "unary" or (node.tag == "group" and node.expression.tag == "unary") then
