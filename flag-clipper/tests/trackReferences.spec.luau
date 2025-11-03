@@ -4,7 +4,7 @@ local TrackReferences = require("../TrackReferences")
 
 local function isReference(source: string, flag: string?)
 	local expression = parser.parseexpr(source)
-	local references = TrackReferences.new(flag or "FlagName", {})
+	local references = TrackReferences.new(flag or "FlagName", true, {})
 	references:_visitExpressionForTesting(expression)
 	return references:isReference(expression)
 end
@@ -31,7 +31,7 @@ local function test_flagAccessViaLocalVariable()
 
 	local expr = call.expression.arguments[1].node
 
-	local references = TrackReferences.new("FlagName", {})
+	local references = TrackReferences.new("FlagName", true, {})
 	references:visit(block)
 	assert(references:isReference(expr) == true)
 end
@@ -54,7 +54,7 @@ local function test_ignoreUnknownLocalVariables()
 
 	local expr = call.expression.arguments[1].node
 
-	local references = TrackReferences.new("FlagName", {})
+	local references = TrackReferences.new("FlagName", true, {})
 	references:visit(block)
 	assert(references:isReference(expr) == false)
 end
@@ -73,7 +73,7 @@ local function test_flagAccessViaLocalCall()
 	assert(call.expression.tag == "call")
 	assert(call.expression.func.tag == "local")
 
-	local references = TrackReferences.new("FlagName", {})
+	local references = TrackReferences.new("FlagName", true, {})
 	references:visit(block)
 	assert(references:isReference(call.expression) == true)
 end
@@ -88,7 +88,7 @@ local function test_ignoreUnknownLocalCalls()
 	local call = block.statements[2]
 	assert(call.tag == "expression")
 
-	local references = TrackReferences.new("FlagName", {})
+	local references = TrackReferences.new("FlagName", true, {})
 	references:visit(block)
 	assert(references:isReference(call.expression) == false)
 end
@@ -107,7 +107,7 @@ local function test_flagAccessViaGlobalCall()
 	assert(call.expression.tag == "call")
 	assert(call.expression.func.tag == "global")
 
-	local references = TrackReferences.new("FlagName", {})
+	local references = TrackReferences.new("FlagName", true, {})
 	references:visit(block)
 	assert(references:isReference(call.expression) == true)
 
@@ -128,7 +128,7 @@ local function test_ignoreUnknownGlobalCalls()
 	assert(call.expression.tag == "call")
 	assert(call.expression.func.tag == "global")
 
-	local references = TrackReferences.new("FlagName", {})
+	local references = TrackReferences.new("FlagName", true, {})
 	references:visit(block)
 	assert(references:isReference(call.expression) == false)
 end
@@ -150,7 +150,7 @@ local function test_flagAccessViaTableIndex()
 	local expression = call.expression.arguments[1].node
 	assert(expression.tag == "indexname")
 
-	local references = TrackReferences.new("FlagName", {})
+	local references = TrackReferences.new("FlagName", true, {})
 	references:visit(block)
 	assert(references:isReference(expression) == true)
 end
@@ -172,7 +172,7 @@ local function test_ignoreUnknownTableReference()
 	local expression = call.expression.arguments[1].node
 	assert(expression.tag == "indexname")
 
-	local references = TrackReferences.new("FlagName", {})
+	local references = TrackReferences.new("FlagName", true, {})
 	references:visit(block)
 	assert(references:isReference(expression) == false)
 end
@@ -193,7 +193,7 @@ local function test_flagAccessViaTableFunctionCall()
 	assert(call.expression.tag == "call")
 	assert(call.expression.func.tag == "indexname")
 
-	local references = TrackReferences.new("FlagName", {})
+	local references = TrackReferences.new("FlagName", true, {})
 	references:visit(block)
 
 	assert(references:isReference(call.expression) == true)
@@ -218,9 +218,82 @@ local function test_flagAccessViaNestedTables()
 	local expression = call.expression.arguments[1].node
 	assert(expression.tag == "indexname")
 
-	local references = TrackReferences.new("FlagName", {})
+	local references = TrackReferences.new("FlagName", true, {})
 	references:visit(block)
 	assert(references:isReference(expression) == true)
+end
+
+local function test_binaryFlagAccess()
+	local block = parser.parse([[
+		local x = not game:DefineFastFlag("FlagName") and arbitraryCondition -- definitively evaluates to false
+		local y = game:DefineFastFlag("FlagName") or arbitraryCondition -- definitively evaluates to true
+	]])
+
+	assert(#block.statements == 2)
+
+	local andFlagAccess = block.statements[1].values[1].node
+	local orFlagAccess = block.statements[2].values[1].node
+
+	local references = TrackReferences.new("FlagName", true, {})
+	references:visit(block)
+
+	assert(references:isReference(andFlagAccess) == true)
+	assert(references:isReference(orFlagAccess) == true)
+	assert(references:getReferenceValue(andFlagAccess) == false)
+	assert(references:getReferenceValue(orFlagAccess) == true)
+end
+
+local function test_unaryFlagAccess()
+	local block = parser.parse([[
+		local x = not game:DefineFastFlag("FlagName")
+	]])
+
+	assert(#block.statements == 1)
+
+	local unaryFlagAccess = block.statements[1].values[1].node
+
+	local references = TrackReferences.new("FlagName", true, {})
+	references:visit(block)
+
+	assert(references:isReference(unaryFlagAccess) == true)
+	assert(references:getReferenceValue(unaryFlagAccess) == false)
+end
+
+local function test_psuedoTernaryFlagAccess()
+	local block = parser.parse([[
+		local x = game:DefineFastFlag("FlagName") and (game:DefineFastFlag("FlagName") or abitraryCondition)
+	]])
+
+	assert(#block.statements == 1)
+
+	local psuedoTernary = block.statements[1].values[1].node
+
+	local references = TrackReferences.new("FlagName", true, {})
+	references:visit(block)
+
+	assert(references:isReference(psuedoTernary) == true)
+	assert(references:getReferenceValue(psuedoTernary) == true)
+end
+
+local function test_falsePositiveCompoundFlagAccess()
+	-- we only want to track a node if we can definitively simplify it's value to a boolean literal
+	-- so nodes like (assuming Flag is true): Flag and someCondition
+	-- should NOT be tracked
+	local block = parser.parse([[
+		local x = game:DefineFastFlag("FlagName") and arbitraryCondition
+		local y = not game:DefineFastFlag("FlagName") or arbitraryCondition
+	]])
+
+	assert(#block.statements == 2)
+
+	local andFlagAccess = block.statements[1].values[1].node
+	local orFlagAccess = block.statements[2].values[1].node
+
+	local references = TrackReferences.new("FlagName", true, {})
+	references:visit(block)
+
+	assert(references:isReference(andFlagAccess) == false)
+	assert(references:isReference(orFlagAccess) == false)
 end
 
 return function()
@@ -235,4 +308,8 @@ return function()
 	test_ignoreUnknownTableReference()
 	test_flagAccessViaTableFunctionCall()
 	test_flagAccessViaNestedTables()
+	test_binaryFlagAccess()
+	test_unaryFlagAccess()
+	test_psuedoTernaryFlagAccess()
+	test_falsePositiveCompoundFlagAccess()
 end
