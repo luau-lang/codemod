@@ -36,12 +36,22 @@ type TableData = {
 }
 
 type TrackReferencesData = {
-	--- A set of AstLocals that are known to correspond to a flag access
+	--- A set of AstLocals that are known to correspond to a flag access or an expression containing a flag which simplifies to a boolean literal
 	--- The locals can be a constant reference, or a function definition
-	_locals: { [luau.AstLocal]: true },
+	_locals: { [luau.AstLocal]: boolean },
 	--- A set of expressions that are known to correspond to a flag access
 	--- This could be a local reference, or a require module
-	_expressions: { [luau.AstExpr]: true },
+	_expressions: { [luau.AstExpr]: boolean },
+
+	-- Cache for simplified binary expressions explicitly to avoid
+	-- removing table entries that have had their values simplified to a direct flag reference
+	-- for ex, suppose flag is true and we have: local table = { field = flag and something }
+	-- expressions simplify from inside out (post-order)
+	-- so we get to simplifying the table itself, we have: { field = flag }
+	-- normally, these are removed but bc value was originally `flag and something` we want to keep entry
+	-- so, we use this cache to catch such cases
+	_simplifiedBinaries: { [luau.AstExpr]: true },
+
 	--- A set of global function names that are known to correspond to a flag access
 	--- Unlike flagLocalsSet, we do not track this via AstLocal reference, but just by the function name
 	_globalNames: { [string]: true },
@@ -69,6 +79,7 @@ export type TrackReferences = setmetatable<TrackReferencesData, typeof(TrackRefe
 
 function TrackReferences.new(
 	flagName: string,
+	flagValue: boolean,
 	requireInfo: requireTracer.RequireTracerResult,
 	sourcemapData: sourcemap.SourcemapData?
 ): TrackReferences
@@ -78,32 +89,33 @@ function TrackReferences.new(
 	self._globalNames = {}
 	self._localTableData = {}
 	self._expressionTableData = {}
+	self._simplifiedBinaries = {}
 	self._visitor = visitor.createVisitor()
 
 	self._visitor.visitExpression = function(node: luau.AstExpr)
 		if isFlagAccess(node, flagName) then
-			self._expressions[node] = true
+			self._expressions[node] = flagValue
 		elseif isFlagFunction.isExprFlagFunction(node, flagName) then
-			self._expressions[node] = true
+			self._expressions[node] = flagValue
 		elseif isRequire(node) then
-			local moduleInfo = getModuleInfo(node, flagName, requireInfo, sourcemapData)
+			local moduleInfo = getModuleInfo(node, flagName, flagValue, requireInfo, sourcemapData)
 			if moduleInfo then
 				if moduleInfo.isFlagModule then
-					self._expressions[node] = true
+					self._expressions[node] = flagValue
 				elseif moduleInfo.tableData then
 					self._expressionTableData[node] = moduleInfo.tableData
 				end
 			end
 		elseif node.tag == "local" then
-			if self._locals[node["local"]] then
-				self._expressions[node] = true
+			if self._locals[node["local"]] ~= nil then
+				self._expressions[node] = self._locals[node["local"]]
 			end
 			if self._localTableData[node["local"]] then
 				self._expressionTableData[node] = self._localTableData[node["local"]]
 			end
 		elseif node.tag == "global" then
 			if self._globalNames[node.name.text] then
-				self._expressions[node] = true
+				self._expressions[node] = flagValue
 			end
 		end
 		return true
@@ -113,14 +125,14 @@ function TrackReferences.new(
 		if node.tag == "call" then
 			local callExpr = node.func
 			if self._expressions[callExpr] then
-				self._expressions[node] = true
+				self._expressions[node] = flagValue
 			end
 		elseif node.tag == "indexname" then
 			local tableData = self._expressionTableData[node.expression]
 
 			if tableData then
 				if table.find(tableData.flagProperties, node.index.text) then
-					self._expressions[node] = true
+					self._expressions[node] = flagValue
 				elseif tableData.nestedTableData[node.index.text] then
 					self._expressionTableData[node] = tableData.nestedTableData[node.index.text]
 				end
@@ -139,6 +151,33 @@ function TrackReferences.new(
 			end
 
 			self._expressionTableData[node] = tableData
+		elseif node.tag == "binary" or (node.tag == "group" and node.expression.tag == "binary") then -- local
+			local toEval = if node.tag == "group" then node.expression :: luau.AstExprBinary else node
+
+			if toEval.operator.text == "and" then
+				if self._expressions[toEval.lhsoperand] == false or self._expressions[toEval.rhsoperand] == false then
+					self._expressions[node] = false
+				elseif
+					self._expressions[toEval.lhsoperand] == true and self._expressions[toEval.rhsoperand] == true
+				then
+					self._expressions[node] = true
+				end
+			elseif toEval.operator.text == "or" then
+				if self._expressions[toEval.lhsoperand] == true or self._expressions[toEval.rhsoperand] == true then
+					self._expressions[node] = true
+				elseif
+					self._expressions[toEval.lhsoperand] == false and self._expressions[toEval.rhsoperand] == false
+				then
+					self._expressions[node] = false
+				end
+			end
+		elseif node.tag == "unary" or (node.tag == "group" and node.expression.tag == "unary") then
+			local toEval = if node.tag == "group" then node.expression :: luau.AstExprUnary else node
+			if toEval.operator.text == "not" then
+				if self._expressions[toEval.operand] ~= nil then
+					self._expressions[node] = not self._expressions[toEval.operand]
+				end
+			end
 		end
 	end
 
@@ -149,8 +188,8 @@ function TrackReferences.new(
 			end
 
 			local value = node.values[idx].node
-			if self._expressions[value] then
-				self._locals[variable.node] = true
+			if self._expressions[value] ~= nil then
+				self._locals[variable.node] = self._expressions[value]
 			end
 
 			if self._expressionTableData[value] then
@@ -161,7 +200,7 @@ function TrackReferences.new(
 
 	self._visitor.visitLocalFunction = function(node: luau.AstStatLocalFunction)
 		if isFlagFunction.isStmtFlagFunction(node, flagName) then
-			self._locals[node.name] = true
+			self._locals[node.name] = flagValue
 		end
 		return true
 	end
@@ -169,7 +208,7 @@ function TrackReferences.new(
 	self._visitor.visitFunction = function(node: luau.AstStatFunction)
 		if isFlagFunction.isStmtFlagFunction(node, flagName) then
 			if node.name.tag == "local" then
-				self._locals[node.name["local"]] = true
+				self._locals[node.name["local"]] = flagValue
 			elseif node.name.tag == "global" then
 				self._globalNames[node.name.name.text] = true
 			end
@@ -189,7 +228,7 @@ function TrackReferences._visitExpressionForTesting(self: TrackReferences, expre
 end
 
 function TrackReferences.isLocalReference(self: TrackReferences, astLocal: luau.AstLocal): boolean
-	return self._locals[astLocal]
+	return self._locals[astLocal] ~= nil
 end
 
 function TrackReferences.isGlobalReference(self: TrackReferences, globalName: string): boolean
@@ -199,7 +238,20 @@ end
 --- Returns whether the provided expression is a reference to the flag being removed
 --- Either a direct reference, or an indirect reference via a local
 function TrackReferences.isReference(self: TrackReferences, expression: luau.AstExpr): boolean
-	return self._expressions[expression] == true
+	return self._expressions[expression] ~= nil
+end
+
+function TrackReferences.getReferenceValue(self: TrackReferences, expression: luau.AstExpr): boolean
+	return self._expressions[expression]
+end
+
+function TrackReferences.isCompoundReference(self: TrackReferences, expression: luau.AstExpr): boolean
+	return self._expressions[expression] ~= nil
+		and (
+			expression.tag == "unary"
+			or expression.tag == "binary"
+			or (expression.tag == "group" and self:isCompoundReference(expression.expression))
+		)
 end
 
 local function getReturnedExpression(body: luau.AstStatBlock): luau.AstExpr?
@@ -225,6 +277,7 @@ end
 function getModuleInfo(
 	expression: luau.AstExpr,
 	flagName: string,
+	flagValue: boolean,
 	requireInfo: requireTracer.RequireTracerResult,
 	sourcemapData: sourcemap.SourcemapData?
 ): ModuleInfo?
@@ -265,7 +318,7 @@ function getModuleInfo(
 		if returnedExpression then
 			requireInfo =
 				requireTracer.traceRequires(block, requirePath, fileResolver.createFileResolver(sourcemapData))
-			local references = TrackReferences.new(flagName, requireInfo, sourcemapData)
+			local references = TrackReferences.new(flagName, flagValue, requireInfo, sourcemapData)
 			references:visit(block)
 			result.tableData = references._expressionTableData[returnedExpression]
 		end

@@ -18,15 +18,7 @@ local function evaluate(expression: luau.AstExpr, ctx: EvaluateContext): boolean
 	end
 
 	if ctx.references:isReference(expression) then
-		return ctx.flagValue
-	end
-
-	if
-		expression.tag == "unary"
-		and expression.operator.text == "not"
-		and ctx.references:isReference(expression.operand)
-	then
-		return not ctx.flagValue
+		return ctx.references:getReferenceValue(expression)
 	end
 
 	return nil

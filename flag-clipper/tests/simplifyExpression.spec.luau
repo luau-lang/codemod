@@ -7,7 +7,7 @@ local TrackReferences = require("../TrackReferences")
 
 local function printSimplify(source: string)
 	local expression = parser.parseexpr(source)
-	local references = TrackReferences.new("FlagName", {})
+	local references = TrackReferences.new("FlagName", true, {})
 	references:_visitExpressionForTesting(expression)
 
 	local context: evaluate.EvaluateContext = {
@@ -17,6 +17,15 @@ local function printSimplify(source: string)
 	}
 
 	return printer.printexpr(simplify(expression, context))
+end
+
+local function case(str: string, exp: string)
+	local source = `{str}`
+	local expected = `{exp}`
+
+	local res = printSimplify(source)
+
+	assert(res == expected, `{res} ~= {expected}`)
 end
 
 local function test_simplifyBinary()
@@ -104,6 +113,16 @@ local function test_setKeyToFalseInTable()
 	assert(printSimplify(source) == expected)
 end
 
+local function test_simplifyFlagReferenceInCall()
+	case("print(game:GetFastFlag('FlagName'))", "print(true)")
+end
+
+local function test_simplifyCompoundFlagReferenceInCall()
+	case("print(not game:GetFastFlag('FlagName'))", "print(false)")
+	case("print(game:GetFastFlag('FlagName') or arbitraryCondition)", "print(true)")
+	case("print(not game:GetFastFlag('FlagName') and arbitraryCondition)", "print(false)")
+end
+
 return function()
 	test_simplifyBinary()
 	-- test_simplifyUnary()
@@ -117,4 +136,6 @@ return function()
 	test_simplifyElseIfMultipleLevels()
 	test_removeKeyFromTable()
 	test_setKeyToFalseInTable()
+	test_simplifyFlagReferenceInCall()
+	test_simplifyCompoundFlagReferenceInCall()
 end
