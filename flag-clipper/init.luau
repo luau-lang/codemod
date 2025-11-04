@@ -34,6 +34,7 @@ local function inplaceReplace(old: luau.AstExpr, new: luau.AstExpr, references: 
 	-- Since `new` expr is now replacing `old`, we need to update the references mapping as it works
 	-- based on table pointer equality
 	references._expressions[old] = references._expressions[new]
+	references._simplifiedBinaries[old] = references._simplifiedBinaries[new]
 
 	modified.setModified(old)
 end
@@ -61,7 +62,7 @@ local function transform(ctx: codemod.Context<Options>)
 	local block = result.root
 
 	local requireInfo = requireTracer.traceRequires(block, ctx.path, fileResolver.createFileResolver(SourcemapData))
-	local references = TrackReferences.new(ctx.options.flag, requireInfo, SourcemapData)
+	local references = TrackReferences.new(ctx.options.flag, ctx.options.value, requireInfo, SourcemapData)
 	references:visit(block)
 
 	-- Early check: if is a flag module, mark for deletion

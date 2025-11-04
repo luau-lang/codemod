@@ -143,6 +143,64 @@ local function test_overallSingleFile()
 	assert(apply(source) == expected)
 end
 
+local function test_simplifyUseOfCompoundFlagReference()
+	local source = [[
+		local x = not game:GetFastFlag("FlagName")
+		local y = game:GetFastFlag("FlagName") or arbitraryCondition
+		local z = game:GetFastFlag("FlagName") and arbitraryCondition
+		local zz = not game:GetFastFlag("FlagName") or arbitraryCondition
+
+		if x then
+			print("a")
+		end
+		if not x then
+			print("b")
+		end
+		if y then
+			print("c")
+		end
+		if not y then
+			print("d")
+		end
+		if z then
+			print("e")
+		end
+		if zz then
+			print("f")
+		end
+	]]
+	local expected = [[
+		local z = arbitraryCondition
+		local zz = arbitraryCondition
+			print("b")
+			print("c")
+		if z then
+			print("e")
+		end
+		if zz then
+			print("f")
+		end
+	]]
+	assert(apply(source, "FlagName", true) == expected)
+end
+
+local function test_simplifyCompoundReferenceTableEntry()
+	local source = [[
+		local x = { myProp = game:GetFastFlag('FlagName') and someCondition }
+		local y = { myProp = game:GetFastFlag('FlagName') or someCondition }
+		local z = { myProp = not game:GetFastFlag('FlagName') or someCondition }
+		local zz = { myProp = not game:GetFastFlag('FlagName') and someCondition }
+	]]
+	local expected = [[
+		local x = { myProp = someCondition }
+		local y = { myProp = true }
+		local z = { myProp = someCondition }
+		local zz = { myProp = false }
+	]]
+
+	assert(apply(source, "FlagName", true) == expected)
+end
+
 local function test_compoundCondition()
 	local source = [[
 		if game:GetFastFlag("FlagName") or value then
@@ -357,6 +415,8 @@ end
 
 return function()
 	test_markFlagModuleForDeletion()
+	test_simplifyUseOfCompoundFlagReference()
+	test_simplifyCompoundReferenceTableEntry()
 	test_compoundCondition()
 	test_compoundConditionWithUnary()
 	test_callWithPseudoTernary()
