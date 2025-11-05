@@ -90,7 +90,7 @@ function TrackReferences.new(
 	self._localTableData = {}
 	self._expressionTableData = {}
 	self._simplifiedBinaries = {}
-	self._visitor = visitor.createVisitor()
+	self._visitor = visitor.create()
 
 	self._visitor.visitExpression = function(node: luau.AstExpr)
 		if isFlagAccess(node, flagName) then
@@ -220,11 +220,11 @@ function TrackReferences.new(
 end
 
 function TrackReferences.visit(self: TrackReferences, block: luau.AstStatBlock)
-	visitor.visitBlock(block, self._visitor)
+	visitor.visitblock(block, self._visitor)
 end
 
 function TrackReferences._visitExpressionForTesting(self: TrackReferences, expression: luau.AstExpr)
-	visitor.visitExpression(expression, self._visitor)
+	visitor.visitexpression(expression, self._visitor)
 end
 
 function TrackReferences.isLocalReference(self: TrackReferences, astLocal: luau.AstLocal): boolean

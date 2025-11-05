@@ -17,7 +17,7 @@ end
 local function getStatementFirstAndLastToken(statement: luau.AstStat)
 	local firstToken: luau.Token? = nil
 	local lastToken: luau.Token? = nil
-	local tokenFinder = visitor.createVisitor()
+	local tokenFinder = visitor.create()
 	tokenFinder.visitToken = function(token: luau.Token)
 		if not firstToken then
 			firstToken = token
@@ -25,14 +25,14 @@ local function getStatementFirstAndLastToken(statement: luau.AstStat)
 		lastToken = token
 		return false
 	end
-	visitor.visitStatement(statement, tokenFinder)
+	visitor.visitstatement(statement, tokenFinder)
 	assert(firstToken ~= nil and lastToken ~= nil)
 	return firstToken, lastToken
 end
 
 local function getStatementTrivia(statement: luau.AstStat)
 	local firstToken, lastToken = getStatementFirstAndLastToken(statement)
-	return firstToken.leadingTrivia, lastToken.trailingTrivia
+	return firstToken.leadingtrivia, lastToken.trailingtrivia
 end
 
 local function attachTriviaInOrder(attachTo, toAttach: { luau.Trivia })
@@ -77,7 +77,7 @@ end
 ]]
 local function handleLeadingTriviaInsertion(statement: luau.AstStat, triviaToInsert: { { luau.Trivia } })
 	local leadingToken, _ = getStatementFirstAndLastToken(statement)
-	leadingToken.leadingTrivia = insertLeadingTrivia(leadingToken.leadingTrivia, triviaToInsert)
+	leadingToken.leadingtrivia = insertLeadingTrivia(leadingToken.leadingtrivia, triviaToInsert)
 end
 
 --[[    
@@ -88,7 +88,7 @@ end
 local function appendTrailingTrivia(statement: luau.AstStat, toAppend: { luau.Trivia })
 	local _, trailingToken = getStatementFirstAndLastToken(statement)
 
-	attachTriviaInOrder(trailingToken.trailingTrivia, toAppend)
+	attachTriviaInOrder(trailingToken.trailingtrivia, toAppend)
 end
 
 --[[
@@ -123,12 +123,12 @@ local function handleVariableStatementTrivia(
 			varsToKeep[#varsToKeep].separator.text = ""
 		else
 			varsToKeep[#varsToKeep].separator = nil
-			varsToKeep[#varsToKeep].node.name.trailingTrivia = statementTrailingTrivia
+			varsToKeep[#varsToKeep].node.name.trailingtrivia = statementTrailingTrivia
 		end
 	end
 	if hasValues then
 		valsToKeep[#valsToKeep].separator = nil
-		valsToKeep[#valsToKeep].node.trailingTrivia = statementTrailingTrivia
+		valsToKeep[#valsToKeep].node.trailingtrivia = statementTrailingTrivia
 	end
 end
 

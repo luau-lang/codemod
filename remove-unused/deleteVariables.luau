@@ -73,8 +73,8 @@ local function filterVariablesAndValues(
 )
 	local varsToKeep, valsToKeep = {}, {}
 	local statementTrailingTrivia = if hasValues
-		then varStatement.values[#varStatement.values].node.trailingTrivia
-		else varStatement.variables[#varStatement.variables].node.name.trailingTrivia
+		then varStatement.values[#varStatement.values].node.trailingtrivia
+		else varStatement.variables[#varStatement.variables].node.name.trailingtrivia
 
 	for i = 1, #varStatement.variables do
 		local deletionsKey = if isAssign
@@ -110,7 +110,7 @@ end
 
 local function deleteVariables(block: luau.AstStatBlock, deletions: deletionStore)
 	removalExceptions = 0
-	local removalsVisitor = visitor.createVisitor()
+	local removalsVisitor = visitor.create()
 
 	removalsVisitor.visitBlockEnd = function(block: luau.AstStatBlock)
 		local filteredStatements = {}
@@ -150,7 +150,7 @@ local function deleteVariables(block: luau.AstStatBlock, deletions: deletionStor
 		block.statements = filteredStatements
 	end
 
-	visitor.visitBlock(block, removalsVisitor)
+	visitor.visitblock(block, removalsVisitor)
 
 	return block, removalExceptions
 end

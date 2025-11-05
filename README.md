@@ -99,7 +99,7 @@ For a more declarative approach, you can use a query-based select function:
 ```luau
 local parser = require("@std/syntax/parser")
 local printer = require("@std/syntax/printer")
-local query = require("./lib/query")
+local query = require("@std/syntax/query")
 
 function migration(ctx)
     local parsedResult = parser.parsefile(ctx.source)
