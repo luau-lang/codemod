@@ -12,7 +12,11 @@ local function simplifyConditional(
 	local conditionResult = evaluate(node.condition, ctx)
 	if conditionResult == true then
 		-- Delete the elseif / else block
-		return node.consequent
+		if node.kind == "stat" then
+			return node.thenblock
+		else
+			return node.thenexpr
+		end
 	end
 
 	-- Handle if we have an elseif
@@ -22,10 +26,14 @@ local function simplifyConditional(
 		if elseifConditionResult == true then
 			-- Replace the else block with the contents of this node
 			-- Do not progress any further (as further conditions are no longer reachable)
-			node.elseKeyword = elseifNode.elseifKeyword
-			node.elseKeyword.text = "else"
-			node.elseKeyword.trailingTrivia = elseifNode.thenKeyword.trailingTrivia
-			node.antecedent = elseifNode.consequent
+			node.elsekeyword = elseifNode.elseifkeyword
+			node.elsekeyword.text = "else"
+			node.elsekeyword.trailingtrivia = elseifNode.thenkeyword.trailingtrivia
+			if node.kind == "stat" then
+				node.elseblock = elseifNode.thenblock
+			else
+				node.elseexpr = elseifNode.thenexpr
+			end
 			break
 		elseif elseifConditionResult == false then
 			-- Skip (i.e. delete) the elseif node
@@ -42,16 +50,20 @@ local function simplifyConditional(
 			local firstElseIf = table.remove(elseifs, 1)
 			assert(firstElseIf ~= nil, "Luau")
 
-			node.ifKeyword = (firstElseIf.elseifKeyword :: any) :: luau.Token<"if">
-			node.ifKeyword.text = "if"
+			node.ifkeyword = (firstElseIf.elseifkeyword :: any) :: luau.Token<"if">
+			node.ifkeyword.text = "if"
 			node.condition = firstElseIf.condition
-			node.thenKeyword = firstElseIf.thenKeyword
-			node.consequent = firstElseIf.consequent
+			node.thenkeyword = firstElseIf.thenkeyword
+			if node.kind == "stat" then
+				node.thenblock = firstElseIf.thenblock
+			else
+				node.thenexpr = firstElseIf.thenexpr
+			end
 			node.elseifs = elseifs
 
 			return node
 		else
-			return node.antecedent
+			return if node.kind == "stat" then node.elseblock else node.elseexpr
 		end
 	end
 

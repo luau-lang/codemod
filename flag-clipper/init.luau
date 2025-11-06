@@ -70,7 +70,7 @@ local function transform(ctx: codemod.Context<Options>)
 		return codemod.DELETION_MARKER
 	end
 
-	local flagVisitor = visitor.createVisitor()
+	local flagVisitor = visitor.create()
 
 	local simplifyCtx = {
 		flagName = ctx.options.flag,
@@ -90,7 +90,7 @@ local function transform(ctx: codemod.Context<Options>)
 		block.statements = newBlock.statements
 	end
 
-	visitor.visitBlock(block, flagVisitor)
+	visitor.visitblock(block, flagVisitor)
 
 	return printer.printfile({ root = block, eof = result.eof })
 end

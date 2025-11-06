@@ -10,7 +10,7 @@ type RequireTracer = visitor.Visitor & {
 }
 
 local function newRequireTracer(): RequireTracer
-	local traceVisitor = visitor.createVisitor() :: RequireTracer
+	local traceVisitor = visitor.create() :: RequireTracer
 	traceVisitor._requireCalls = {}
 	traceVisitor._locals = {}
 
@@ -138,7 +138,7 @@ end
 
 local function traceRequires(block: luau.AstStatBlock, from: resolver.ModuleName, resolver: resolver.Resolver)
 	local traceVisitor = newRequireTracer()
-	visitor.visitBlock(block, traceVisitor)
+	visitor.visitblock(block, traceVisitor)
 	return processTracer(traceVisitor, resolver, from)
 end
 

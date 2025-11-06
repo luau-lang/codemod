@@ -8,7 +8,7 @@ local printer = require("@std/syntax/printer")
 local path = require("./lib/path")
 local codemod = require("./lib/types")
 
-local query = require("./lib/query")
+local query = require("@std/syntax/query")
 local isRequire = require("./require-resolver/isRequire")
 local fileResolver = require("./require-resolver/resolver")
 local requireTracer = require("./require-resolver/tracer")
@@ -22,10 +22,10 @@ local SourcemapData: sourcemap.SourcemapData? = nil
 local function createString(text: string): luau.AstExprConstantString
 	return {
 		tag = "string",
-		leadingTrivia = {},
+		leadingtrivia = {},
 		position = { line = 0, column = 0 },
 		text = text,
-		trailingTrivia = {},
+		trailingtrivia = {},
 		quoteStyle = "double",
 		blockDepth = 0,
 	}

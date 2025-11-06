@@ -25,7 +25,7 @@ end
 local function expressionReferencesLocal(expression: luau.AstExpr, loc: luau.AstLocal)
 	local isReferencingLocal = false
 
-	local referenceVisitor = visitor.createVisitor()
+	local referenceVisitor = visitor.create()
 	referenceVisitor.visitLocalReference = function(reference: luau.AstExprLocal)
 		if loc == reference["local"] then
 			isReferencingLocal = true
@@ -33,7 +33,7 @@ local function expressionReferencesLocal(expression: luau.AstExpr, loc: luau.Ast
 		end
 		return true
 	end
-	visitor.visitExpression(expression, referenceVisitor)
+	visitor.visitexpression(expression, referenceVisitor)
 
 	return isReferencingLocal
 end
@@ -144,7 +144,7 @@ local function simplifyBlock(block: luau.AstStatBlock, ctx: evaluate.EvaluateCon
 							and previousStatement.variables[1].node == assigningTo["local"]
 							and not expressionReferencesLocal(otherStatement.values[1].node, assigningTo["local"])
 						then
-							previousStatement.variables[1].node.name.trailingTrivia = assigningTo.token.trailingTrivia
+							previousStatement.variables[1].node.name.trailingtrivia = assigningTo.token.trailingtrivia
 							previousStatement.equals = otherStatement.equals
 							previousStatement.values = otherStatement.values
 							continue

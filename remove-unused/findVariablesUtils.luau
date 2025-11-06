@@ -21,7 +21,7 @@ export type deletionStore = {
 ]]
 export type globalStore = {
 	[string]: {
-		ref: luau.AstExpr,
+		ref: luau.AstExpr?,
 		beforeInitCnt: number,
 	},
 }
@@ -130,7 +130,7 @@ local function findVariables(block: luau.AstStatBlock)
 	local variables: variableStore = {} -- Stores varReference : useCount for use in deletion
 	local scopeStack: { scope } = {} -- Stack-like table that stores varName : varReference at each level of scope
 
-	local getVarsVisitor = visitor.createVisitor()
+	local getVarsVisitor = visitor.create()
 
 	getVarsVisitor.visitBlock = function(block)
 		table.insert(scopeStack, {}) -- Push new scope frame to stack
@@ -235,7 +235,7 @@ local function findVariables(block: luau.AstStatBlock)
 	end
 
 	-- Execute the visitor on the block
-	visitor.visitBlock(block, getVarsVisitor)
+	visitor.visitblock(block, getVarsVisitor)
 
 	-- Debug output of all variables and their usage counts
 	print("Variables:")

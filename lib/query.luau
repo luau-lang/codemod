@@ -6,7 +6,7 @@ local visitor = require("@std/syntax/visitor")
 --- Useful for defining declarative-based programs, where the matched nodes are mutated for the migration
 local function selectExpression<T>(block: luau.AstStatBlock, predicate: (luau.AstExpr) -> T?): { T }
 	local nodes = {}
-	local finder = visitor.createVisitor()
+	local finder = visitor.create()
 
 	finder.visitExpression = function(node)
 		local result = predicate(node)

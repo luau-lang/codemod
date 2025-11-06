@@ -13,7 +13,7 @@ local function isFlagReference(body: luau.AstStatBlock, variable: luau.AstLocal,
 	-- TODO: re-use the TrackReferences set up
 	-- Right now, it has a circular dependency
 
-	local trackLocalsVisitor = visitor.createVisitor()
+	local trackLocalsVisitor = visitor.create()
 	local result = false
 
 	trackLocalsVisitor.visitLocalDeclaration = function(node: luau.AstStatLocal)
@@ -38,7 +38,7 @@ local function isFlagReference(body: luau.AstStatBlock, variable: luau.AstLocal,
 		return true
 	end
 
-	visitor.visitBlock(body, trackLocalsVisitor)
+	visitor.visitblock(body, trackLocalsVisitor)
 
 	return result
 end

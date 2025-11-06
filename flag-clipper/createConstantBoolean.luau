@@ -9,8 +9,8 @@ local function createConstantBoolean(
 		tag = "boolean",
 		value = value,
 		text = tostring(value) :: "true" | "false",
-		leadingTrivia = leadingTrivia,
-		trailingTrivia = trailingTrivia,
+		leadingtrivia = leadingTrivia,
+		trailingtrivia = trailingTrivia,
 		position = { line = 0, column = 0 },
 	}
 end
