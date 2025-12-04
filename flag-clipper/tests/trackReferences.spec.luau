@@ -18,7 +18,7 @@ local function test_directFlagAccess()
 end
 
 local function test_flagAccessViaLocalVariable()
-	local block = parser.parse([[
+	local block = parser.parseblock([[
 		local flagValue = game:GetFastFlag("FlagName")
 		print(flagValue)
 	]])
@@ -37,7 +37,7 @@ local function test_flagAccessViaLocalVariable()
 end
 
 local function test_ignoreUnknownLocalVariables()
-	local block = parser.parse([[
+	local block = parser.parseblock([[
 		local flagValue = ...
 		print(flagValue)
 	]])
@@ -60,7 +60,7 @@ local function test_ignoreUnknownLocalVariables()
 end
 
 local function test_flagAccessViaLocalCall()
-	local block = parser.parse([[
+	local block = parser.parseblock([[
 		local function getFlagValue()
 			return game:GetFastFlag("FlagName")
 		end
@@ -79,7 +79,7 @@ local function test_flagAccessViaLocalCall()
 end
 
 local function test_ignoreUnknownLocalCalls()
-	local block = parser.parse([[
+	local block = parser.parseblock([[
 		local function getRandomValue() end
 		getRandomValue()
 	]])
@@ -94,7 +94,7 @@ local function test_ignoreUnknownLocalCalls()
 end
 
 local function test_flagAccessViaGlobalCall()
-	local block = parser.parse([[
+	local block = parser.parseblock([[
 		function globalGetFlagValue()
 			return game:GetFastFlag("FlagName")
 		end
@@ -116,7 +116,7 @@ local function test_flagAccessViaGlobalCall()
 end
 
 local function test_ignoreUnknownGlobalCalls()
-	local block = parser.parse([[
+	local block = parser.parseblock([[
 		function globalRandomFunction()
 		end
 		globalRandomFunction()
@@ -134,7 +134,7 @@ local function test_ignoreUnknownGlobalCalls()
 end
 
 local function test_flagAccessViaTableIndex()
-	local block = parser.parse([[
+	local block = parser.parseblock([[
 		local tbl = {
 			flagValue = game:GetFastFlag("FlagName")
 		}
@@ -156,7 +156,7 @@ local function test_flagAccessViaTableIndex()
 end
 
 local function test_ignoreUnknownTableReference()
-	local block = parser.parse([[
+	local block = parser.parseblock([[
 		local tbl = {
 			flagValue = game:GetFastFlag("FlagName")
 		}
@@ -178,7 +178,7 @@ local function test_ignoreUnknownTableReference()
 end
 
 local function test_flagAccessViaTableFunctionCall()
-	local block = parser.parse([[
+	local block = parser.parseblock([[
 		local tbl = {
 			flagValue = function()
 				return game:GetFastFlag("FlagName")
@@ -200,7 +200,7 @@ local function test_flagAccessViaTableFunctionCall()
 end
 
 local function test_flagAccessViaNestedTables()
-	local block = parser.parse([[
+	local block = parser.parseblock([[
 		local tbl = {
 			other = {
 				flagValue = game:GetFastFlag("FlagName")
@@ -224,7 +224,7 @@ local function test_flagAccessViaNestedTables()
 end
 
 local function test_binaryFlagAccess()
-	local block = parser.parse([[
+	local block = parser.parseblock([[
 		local x = not game:DefineFastFlag("FlagName") and arbitraryCondition -- definitively evaluates to false
 		local y = game:DefineFastFlag("FlagName") or arbitraryCondition -- definitively evaluates to true
 	]])
@@ -244,7 +244,7 @@ local function test_binaryFlagAccess()
 end
 
 local function test_unaryFlagAccess()
-	local block = parser.parse([[
+	local block = parser.parseblock([[
 		local x = not game:DefineFastFlag("FlagName")
 	]])
 
@@ -260,7 +260,7 @@ local function test_unaryFlagAccess()
 end
 
 local function test_psuedoTernaryFlagAccess()
-	local block = parser.parse([[
+	local block = parser.parseblock([[
 		local x = game:DefineFastFlag("FlagName") and (game:DefineFastFlag("FlagName") or abitraryCondition)
 		local y = not game:DefineFastFlag("FlagName") or (not game:DefineFastFlag("FlagName") and arbitraryCondition)
 	]])
@@ -283,7 +283,7 @@ local function test_falsePositiveCompoundFlagAccess()
 	-- we only want to track a node if we can definitively simplify it's value to a boolean literal
 	-- so nodes like (assuming Flag is true): Flag and someCondition
 	-- should NOT be tracked
-	local block = parser.parse([[
+	local block = parser.parseblock([[
 		local x = game:DefineFastFlag("FlagName") and arbitraryCondition
 		local y = not game:DefineFastFlag("FlagName") or arbitraryCondition
 		local z = game:DefineFastFlag("FlagName") and not game:DefineFastFlag("FlagName") or arbitraryCondition

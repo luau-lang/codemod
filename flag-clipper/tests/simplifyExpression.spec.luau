@@ -16,7 +16,7 @@ local function printSimplify(source: string)
 		references = references,
 	}
 
-	return printer.printexpr(simplify(expression, context))
+	return printer.printnode(simplify(expression, context))
 end
 
 local function case(str: string, exp: string)

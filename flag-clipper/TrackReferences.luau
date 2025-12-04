@@ -307,7 +307,7 @@ function getModuleInfo(
 	end
 
 	local contents = fs.readfiletostring(requirePath)
-	local block = parser.parse(contents)
+	local block = parser.parseblock(contents)
 	assert(block)
 
 	local result: ModuleInfo = { isFlagModule = false, tableData = nil }

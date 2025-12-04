@@ -50,7 +50,7 @@ end
     @return - The transformed source code with unused variables removed
 ]]
 local function transform(ctx: codemod.Context<Options>)
-	local result = parser.parsefile(ctx.source)
+	local result = parser.parse(ctx.source)
 	local block = result.root
 
 	if not excludeFile(ctx.path, seleneExclude) then

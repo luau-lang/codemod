@@ -4,7 +4,7 @@ local resolver = require("../resolver")
 local tracer = require("../tracer")
 
 local function assertResolves(expr: string, value: string?, currentModuleName: string?)
-	local block = parser.parse(`require({expr})`)
+	local block = parser.parseblock(`require({expr})`)
 	assert(block)
 
 	local expressionStmt = block.statements[1]

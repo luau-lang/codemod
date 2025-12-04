@@ -44,7 +44,7 @@ end
 local function transform(ctx: codemod.Context<Options>)
 	assert(SourcemapData, "no sourcemap data")
 
-	local result = parser.parsefile(ctx.source)
+	local result = parser.parse(ctx.source)
 
 	local requireInfo =
 		requireTracer.traceRequires(result.root, ctx.path, fileResolver.createFileResolver(SourcemapData))

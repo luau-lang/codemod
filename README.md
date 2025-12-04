@@ -63,7 +63,7 @@ local parser = require("@std/syntax/parser")
 local printer = require("@std/syntax/printer")
 
 function migration(ctx)
-    local parsedResult = parser.parsefile(ctx.source)
+    local parsedResult = parser.parse(ctx.source)
     return printer.printfile(parsedResult)
 end
 
@@ -78,7 +78,7 @@ local printer = require("@std/syntax/printer")
 local visitor = require("@std/syntax/visitor")
 
 function migration(ctx)
-    local parsedResult = parser.parsefile(ctx.source)
+    local parsedResult = parser.parse(ctx.source)
 
     local uppercaseVisitor = visitor.createVisitor()
 
@@ -102,7 +102,7 @@ local printer = require("@std/syntax/printer")
 local query = require("@std/syntax/query")
 
 function migration(ctx)
-    local parsedResult = parser.parsefile(ctx.source)
+    local parsedResult = parser.parse(ctx.source)
 
     local requireCalls = query.selectExpression(parsedResult.root, function(node)
         return isRequireCall(node)

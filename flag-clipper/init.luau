@@ -58,7 +58,7 @@ local function initialize(ctx: codemod.InitializationContext<Options>)
 end
 
 local function transform(ctx: codemod.Context<Options>)
-	local result = parser.parsefile(ctx.source)
+	local result = parser.parse(ctx.source)
 	local block = result.root
 
 	local requireInfo = requireTracer.traceRequires(block, ctx.path, fileResolver.createFileResolver(SourcemapData))
