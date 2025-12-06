@@ -29,6 +29,7 @@ jobs:
 
       - name: Run Tests
         run: |
+          lute setup
           lute tests/arguments.spec.luau
           lute tests/path.spec.luau
           lute flag-clipper/tests/runner.luau

@@ -23,7 +23,7 @@ local function apply(source: string, flagName: string?, flagValue: boolean?)
 		references = references,
 	}
 
-	local parseResult = parser.parsefile(source)
+	local parseResult = parser.parse(source)
 	references:visit(parseResult.root)
 	parseResult.root = simplifyBlock(parseResult.root, context)
 	return printer.printfile(parseResult)

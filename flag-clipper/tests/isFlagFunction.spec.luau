@@ -2,7 +2,7 @@ local parser = require("@std/syntax/parser")
 local isFlagFunction = require("../matchers/isFlagFunction")
 
 local function parseStatement(source: string)
-	local block = parser.parse(source)
+	local block = parser.parseblock(source)
 	assert(#block.statements == 1, "block must have one statement")
 	return block.statements[1]
 end
