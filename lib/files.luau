@@ -1,4 +1,4 @@
-local fs = require("@lute/fs")
+local fs = require("@std/fs")
 local process = require("@lute/process")
 
 local ignore = require("./ignore")
@@ -14,7 +14,7 @@ end
 local function traverseDirectoryRecursive(directory: string, ignoreResolver: ignore.IgnoreResolver): { string }
 	local results = {}
 
-	for _, entry in fs.listdir(directory) do
+	for _, entry in fs.listdirectory(directory) do
 		local fullPath = path.joinPath(directory, entry.name)
 
 		if entry.type == "dir" then

@@ -53,7 +53,7 @@ end
 -- end
 
 local function test_simplifyIfExprRemoveElse()
-	local source = "if game:GetFastFlag('FlagName') then 1 else x = 2"
+	local source = "if game:GetFastFlag('FlagName') then 1 else 2"
 	local expected = "1 "
 	assert(printSimplify(source) == expected)
 end

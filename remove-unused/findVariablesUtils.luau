@@ -132,15 +132,15 @@ local function findVariables(block: luau.AstStatBlock)
 
 	local getVarsVisitor = visitor.create()
 
-	getVarsVisitor.visitBlock = function(block)
+	getVarsVisitor.visitStatBlock = function(block)
 		table.insert(scopeStack, {}) -- Push new scope frame to stack
 		return true
 	end
-	getVarsVisitor.visitBlockEnd = function(block)
+	getVarsVisitor.visitStatBlockEnd = function(block)
 		table.remove(scopeStack, #scopeStack) -- Pop current scope from stack
 	end
 
-	getVarsVisitor.visitLocalDeclaration = function(statement: luau.AstStatLocal)
+	getVarsVisitor.visitStatLocalDeclaration = function(statement: luau.AstStatLocal)
 		handleVarDeclaration(statement.variables, variables, scopeStack)
 		return true
 	end
@@ -150,7 +150,7 @@ local function findVariables(block: luau.AstStatBlock)
 		Registers the function name AST reference in the store and scope.
 		Note: Function parameters are not analyzed for usage as they're acceptable to be unused.
 	]]
-	getVarsVisitor.visitLocalFunction = function(statement: luau.AstStatLocalFunction)
+	getVarsVisitor.visitStatLocalFunction = function(statement: luau.AstStatLocalFunction)
 		if not excludeVarName(statement.name.name.text) then
 			variables[statement.name] = 0 -- Initialize usage count
 			scopeStack[#scopeStack][statement.name.name.text] = statement.name -- Add to current scope
@@ -164,7 +164,7 @@ local function findVariables(block: luau.AstStatBlock)
 		We use the function name (string, not AST node name) to index into globals.
 		When we find the function declaration, we then store the actual AST node reference.
 	]]
-	getVarsVisitor.visitFunction = function(statement: luau.AstStatFunction)
+	getVarsVisitor.visitStatFunction = function(statement: luau.AstStatFunction)
 		if statement.name.name then
 			local funcName = statement.name.name.text
 			if not excludeVarName(funcName) then
@@ -184,7 +184,7 @@ local function findVariables(block: luau.AstStatBlock)
 		return true
 	end
 
-	getVarsVisitor.visitLocalReference = function(expression: luau.AstExprLocal)
+	getVarsVisitor.visitExprLocal = function(expression: luau.AstExprLocal)
 		handleVarReference(expression, variables)
 		return true
 	end
@@ -194,7 +194,7 @@ local function findVariables(block: luau.AstStatBlock)
 		Increments usage count for global functions that are already defined.
 		For references before definition, tracks the count to apply later when definition is found.
 	]]
-	getVarsVisitor.visitGlobal = function(expression: luau.AstExprGlobal)
+	getVarsVisitor.visitExprGlobal = function(expression: luau.AstExprGlobal)
 		local globalFuncName
 		globalFuncName = expression.name.text
 		if not globals[globalFuncName] then
@@ -229,7 +229,7 @@ local function findVariables(block: luau.AstStatBlock)
 		return true
 	end
 
-	getVarsVisitor.visitAssign = function(expression: luau.AstStatAssign)
+	getVarsVisitor.visitStatAssign = function(expression: luau.AstStatAssign)
 		handleAssign(expression.variables, expression.values, variables)
 		return true
 	end

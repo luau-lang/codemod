@@ -80,12 +80,12 @@ local function transform(ctx: codemod.Context<Options>)
 
 	-- TODO: might want to double check the complexity here, since `simplifyExpression` is also recursive
 	-- do we end up simplifying it twice?
-	flagVisitor.visitExpressionEnd = function(expression: luau.AstExpr)
+	flagVisitor.visitExprEnd = function(expression: luau.AstExpr)
 		local newExpression = simplifyExpression(expression, simplifyCtx)
 		inplaceReplace(expression, newExpression, references)
 	end
 
-	flagVisitor.visitBlockEnd = function(block)
+	flagVisitor.visitStatBlockEnd = function(block)
 		local newBlock = simplifyBlock(block, simplifyCtx)
 		block.statements = newBlock.statements
 	end

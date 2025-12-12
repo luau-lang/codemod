@@ -14,12 +14,12 @@ local function newRequireTracer(): RequireTracer
 	traceVisitor._requireCalls = {}
 	traceVisitor._locals = {}
 
-	traceVisitor.visitTypeAssertion = function()
+	traceVisitor.visitExprTypeAssertion = function()
 		--  suppress `require() :: any`
 		return false
 	end
 
-	traceVisitor.visitCall = function(node)
+	traceVisitor.visitExprCall = function(node)
 		if isRequire(node) then
 			table.insert(traceVisitor._requireCalls, node)
 		end
@@ -27,7 +27,7 @@ local function newRequireTracer(): RequireTracer
 		return true
 	end
 
-	traceVisitor.visitLocalDeclaration = function(node: luau.AstStatLocal)
+	traceVisitor.visitStatLocalDeclaration = function(node: luau.AstStatLocal)
 		for i = 1, math.min(#node.variables, #node.values) do
 			local variable = node.variables[i].node
 			local value = node.values[i].node
@@ -37,7 +37,7 @@ local function newRequireTracer(): RequireTracer
 		return true
 	end
 
-	traceVisitor.visitAssign = function(node: luau.AstStatAssign)
+	traceVisitor.visitStatAssign = function(node: luau.AstStatAssign)
 		for _, var in node.variables do
 			-- locals that are assigned don't have a known expression
 			if var.node.tag == "local" then

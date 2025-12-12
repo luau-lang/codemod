@@ -112,7 +112,7 @@ local function deleteVariables(block: luau.AstStatBlock, deletions: deletionStor
 	removalExceptions = 0
 	local removalsVisitor = visitor.create()
 
-	removalsVisitor.visitBlockEnd = function(block: luau.AstStatBlock)
+	removalsVisitor.visitStatBlockEnd = function(block: luau.AstStatBlock)
 		local filteredStatements = {}
 
 		local removedTrivia = {} -- store trivia of removed statements so we can preserve it
