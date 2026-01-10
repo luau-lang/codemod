@@ -93,8 +93,8 @@ local function parseGlob(glob: string): Glob
 			-- Match any single character, except for /
 			table.insert(lua_parts, "[^/]")
 			idx = idx + 1
-		elseif char == "-" then
-			table.insert(lua_parts, "%-")
+		elseif char == "-" or char == "." then
+			table.insert(lua_parts, `%{char}`)
 			idx = idx + 1
 		else
 			table.insert(lua_parts, char)
