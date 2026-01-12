@@ -1,4 +1,4 @@
-local fs = require("@lute/fs")
+local fs = require("@std/fs")
 local luau = require("@lute/luau")
 local parser = require("@std/syntax/parser")
 
@@ -92,7 +92,7 @@ function TrackReferences.new(
 	self._simplifiedBinaries = {}
 	self._visitor = visitor.create()
 
-	self._visitor.visitExpression = function(node: luau.AstExpr)
+	self._visitor.visitExpr = function(node: luau.AstExpr)
 		if isFlagAccess(node, flagName) then
 			self._expressions[node] = flagValue
 		elseif isFlagFunction.isExprFlagFunction(node, flagName) then
@@ -121,7 +121,7 @@ function TrackReferences.new(
 		return true
 	end
 
-	self._visitor.visitExpressionEnd = function(node: luau.AstExpr)
+	self._visitor.visitExprEnd = function(node: luau.AstExpr)
 		if node.tag == "call" then
 			local callExpr = node.func
 			if self._expressions[callExpr] then
@@ -181,7 +181,7 @@ function TrackReferences.new(
 		end
 	end
 
-	self._visitor.visitLocalDeclarationEnd = function(node: luau.AstStatLocal)
+	self._visitor.visitStatLocalDeclarationEnd = function(node: luau.AstStatLocal)
 		for idx, variable in node.variables do
 			if #node.values < idx then
 				break
@@ -198,14 +198,14 @@ function TrackReferences.new(
 		end
 	end
 
-	self._visitor.visitLocalFunction = function(node: luau.AstStatLocalFunction)
+	self._visitor.visitStatLocalFunction = function(node: luau.AstStatLocalFunction)
 		if isFlagFunction.isStmtFlagFunction(node, flagName) then
 			self._locals[node.name] = flagValue
 		end
 		return true
 	end
 
-	self._visitor.visitFunction = function(node: luau.AstStatFunction)
+	self._visitor.visitStatFunction = function(node: luau.AstStatFunction)
 		if isFlagFunction.isStmtFlagFunction(node, flagName) then
 			if node.name.tag == "local" then
 				self._locals[node.name["local"]] = flagValue

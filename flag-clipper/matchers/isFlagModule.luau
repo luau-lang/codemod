@@ -16,7 +16,7 @@ local function isFlagReference(body: luau.AstStatBlock, variable: luau.AstLocal,
 	local trackLocalsVisitor = visitor.create()
 	local result = false
 
-	trackLocalsVisitor.visitLocalDeclaration = function(node: luau.AstStatLocal)
+	trackLocalsVisitor.visitStatLocalDeclaration = function(node: luau.AstStatLocal)
 		for i, var in node.variables do
 			if var.node == variable then
 				if #node.values >= i then
@@ -29,7 +29,7 @@ local function isFlagReference(body: luau.AstStatBlock, variable: luau.AstLocal,
 		return true
 	end
 
-	trackLocalsVisitor.visitLocalFunction = function(node: luau.AstStatLocalFunction)
+	trackLocalsVisitor.visitStatLocalFunction = function(node: luau.AstStatLocalFunction)
 		if node.name == variable then
 			result = isFlagFunction.isStmtFlagFunction(node, flagName)
 			return false

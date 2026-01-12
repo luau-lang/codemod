@@ -1,4 +1,4 @@
-local fs = require("@lute/fs")
+local fs = require("@std/fs")
 local process = require("@lute/process")
 
 local codemod = require("../")
@@ -364,7 +364,7 @@ local function test_snapshots()
 		return path.joinPath(outputDirectory, relativePath)
 	end
 
-	for _, test in fs.listdir(baseDirectory) do
+	for _, test in fs.listdirectory(baseDirectory) do
 		assert(test.type == "dir")
 		print("Running", test.name)
 

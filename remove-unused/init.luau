@@ -9,7 +9,7 @@
 ]]
 
 local luau = require("@lute/luau")
-local fs = require("@lute/fs")
+local fs = require("@std/fs")
 local findVariables = require("./remove-unused/findVariablesUtils").findVariables
 local deleteVariables = require("./remove-unused/deleteVariables")
 local parser = require("@std/syntax/parser")

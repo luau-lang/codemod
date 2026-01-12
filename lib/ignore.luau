@@ -1,4 +1,4 @@
-local fs = require("@lute/fs")
+local fs = require("@std/fs")
 
 local path = require("./path")
 local strings = require("./strings")

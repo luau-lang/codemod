@@ -8,7 +8,7 @@ local function selectExpression<T>(block: luau.AstStatBlock, predicate: (luau.As
 	local nodes = {}
 	local finder = visitor.create()
 
-	finder.visitExpression = function(node)
+	finder.visitExpr = function(node)
 		local result = predicate(node)
 		if result then
 			table.insert(nodes, result)
@@ -17,7 +17,7 @@ local function selectExpression<T>(block: luau.AstStatBlock, predicate: (luau.As
 		return true
 	end
 
-	visitor.visitBlock(block, finder)
+	visitor.visitblock(block, finder)
 
 	return nodes
 end

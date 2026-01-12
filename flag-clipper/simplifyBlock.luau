@@ -26,7 +26,7 @@ local function expressionReferencesLocal(expression: luau.AstExpr, loc: luau.Ast
 	local isReferencingLocal = false
 
 	local referenceVisitor = visitor.create()
-	referenceVisitor.visitLocalReference = function(reference: luau.AstExprLocal)
+	referenceVisitor.visitExprLocal = function(reference: luau.AstExprLocal)
 		if loc == reference["local"] then
 			isReferencingLocal = true
 			return false
