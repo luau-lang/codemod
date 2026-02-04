@@ -56,7 +56,7 @@ jobs:
             ${{ format('https://github.com/luau-lang/lute/releases/tag/{0}', steps.latest-release.outputs.tag)}}
             
             ---
-            *This PR was automatically created by the [Update Luau workflow](https://github.com/${{ github.repository }}/actions/workflows/update-prs.yml)*
+            *This PR was automatically created by the [Update Lute workflow](https://github.com/${{ github.repository }}/actions/workflows/update-lute.yml)*
           branch: update-lute
           delete-branch: true
 
