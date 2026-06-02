@@ -1,5 +1,5 @@
 local fs = require("@std/fs")
-local json = require("@batteries/json")
+local json = require("@std/json")
 local path = require("../lib/path")
 local strings = require("../lib/strings")
 
