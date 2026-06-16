@@ -31,7 +31,7 @@ local function test_matchesFoundationFlagAccess()
 end
 
 local function test_matchesFoundationBumpedFlagAccess()
-	local expr = parser.parseexpr('Flags.FlagName')
+	local expr = parser.parseexpr("Flags.FlagName")
 	assert(isFlagAccess(expr, "FlagName2") == true)
 end
 
