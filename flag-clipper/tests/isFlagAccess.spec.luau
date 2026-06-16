@@ -30,6 +30,11 @@ local function test_matchesFoundationFlagAccess()
 	assert(isFlagAccess(expr, "FlagName") == true)
 end
 
+local function test_matchesFoundationBumpedFlagAccess()
+	local expr = parser.parseexpr("Flags.FlagName")
+	assert(isFlagAccess(expr, "FlagName2") == true)
+end
+
 local function test_matchesSetFastFlagForTesting()
 	local expr = parser.parseexpr('game:SetFastFlagForTesting("FlagName")')
 	assert(isFlagAccess(expr, "FlagName") == true)
@@ -46,6 +51,7 @@ return function()
 	test_doesNotMatchAccessWithDifferentName()
 	test_matchesUIBloxFlagAccess()
 	test_matchesFoundationFlagAccess()
+	test_matchesFoundationBumpedFlagAccess()
 	test_matchesSetFastFlagForTesting()
 	test_matchesScopedFFlag()
 end
