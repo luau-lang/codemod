@@ -84,7 +84,8 @@ local function isFoundationFlagAccess(expression: luau.AstExpr, flagName: string
 
 	-- Handle flag property access: Flags.FlagName (for assignments like Flags.FlagName = props.boolean)
 	if expression.tag == "indexname" then
-		return expression.index and expression.index.text == flagName
+		local unversionedFlagName = flagName:gsub("%d+$", "")
+		return expression.index and expression.index.text == unversionedFlagName
 	end
 
 	return false
