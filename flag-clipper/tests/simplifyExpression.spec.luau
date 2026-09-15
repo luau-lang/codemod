@@ -106,6 +106,13 @@ local function test_removeKeyFromTable()
 	assert(printSimplify(source) == expected)
 end
 
+local function test_evaluateComputedKeyValueInTable()
+	local source = "{ ['text-heading-medium'] = game:GetFastFlag('FlagName') }"
+	local expected = "{ ['text-heading-medium'] = true }"
+
+	assert(printSimplify(source) == expected)
+end
+
 local function test_setKeyToFalseInTable()
 	local source = "{ featureIsDisabled = not game:GetFastFlag('FlagName') }"
 	local expected = "{ featureIsDisabled = false }"
@@ -135,6 +142,7 @@ return function()
 	test_simplifyElseIfIntermediateCondition()
 	test_simplifyElseIfMultipleLevels()
 	test_removeKeyFromTable()
+	test_evaluateComputedKeyValueInTable()
 	test_setKeyToFalseInTable()
 	test_simplifyFlagReferenceInCall()
 	test_simplifyCompoundFlagReferenceInCall()

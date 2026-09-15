@@ -75,9 +75,11 @@ end
 local function simplifyTable(expression: luau.AstExprTable, ctx: evaluate.EvaluateContext)
 	local entries = {}
 	for _, field in expression.entries do
-		--- Remove fields from a table that directly reference the removed Flag
+		-- Remove record table items that are direct flag references.
+		-- general items (square bracketed: [item] = ...) are considered 'dynamic' values, so we preserve their keys and evaluate their values instead.
 		if
-			ctx.references:isReference(field.value)
+			field.kind == "record"
+			and ctx.references:isReference(field.value)
 			and not (ctx.references:isCompoundReference(field.value) or ctx.references._simplifiedBinaries[field.value])
 		then
 			continue
