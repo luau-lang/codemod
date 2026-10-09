@@ -74,12 +74,44 @@ end
 
 local function simplifyTable(expression: luau.AstExprTable, ctx: evaluate.EvaluateContext)
 	local entries = {}
+
+	--- Leading trivia of removed fields that still belongs to the fields after them: a comment heading
+	--- a group of fields, or the blank line separating two groups. It moves onto the next kept field
+	--- when that field is in the same group, and is dropped when the whole group was removed.
+	local orphanedTrivia: { luau.Trivia }? = nil
+	local removedAny = false
+
+	local function removeField(field: luau.AstTableExprItem)
+		removedAny = true
+		local leading = trivia.getItemFirstToken(field).leadingtrivia
+		if orphanedTrivia == nil or trivia.beginsWithBlankLine(leading) then
+			local carriesGroupTrivia = trivia.beginsWithBlankLine(leading) or trivia.containsComment(leading)
+			orphanedTrivia = if carriesGroupTrivia then leading else nil
+		end
+	end
+
+	local function keepField(field: luau.AstTableExprItem)
+		local token = trivia.getItemFirstToken(field)
+		if orphanedTrivia and not trivia.beginsWithBlankLine(token.leadingtrivia) then
+			token.leadingtrivia = trivia.joinLeadingTrivia(orphanedTrivia, token.leadingtrivia)
+		end
+		orphanedTrivia = nil
+
+		--- A blank line separated this field from removed ones, so it would otherwise open the table
+		if #entries == 0 and removedAny then
+			token.leadingtrivia = trivia.trimBlankLines(token.leadingtrivia)
+		end
+
+		table.insert(entries, field)
+	end
+
 	for _, field in expression.entries do
 		--- Remove fields from a table that directly reference the removed Flag
 		if
 			ctx.references:isReference(field.value)
 			and not (ctx.references:isCompoundReference(field.value) or ctx.references._simplifiedBinaries[field.value])
 		then
+			removeField(field)
 			continue
 		end
 
@@ -95,10 +127,11 @@ local function simplifyTable(expression: luau.AstExprTable, ctx: evaluate.Evalua
 
 		--- Remove fields from a table if they were simplified by the flag-clipper, and are now `nil`
 		if modified.isModified(field.value) and field.value.tag == "nil" then
+			removeField(field)
 			continue
 		end
 
-		table.insert(entries, field)
+		keepField(field)
 	end
 	expression.entries = entries
 	return expression
