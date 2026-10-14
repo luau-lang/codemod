@@ -1,18 +1,18 @@
-local luau = require("@lute/luau")
+local syntax = require("@std/syntax")
 
 local visitor = require("@std/syntax/visitor")
 local printTable = require("./helpers/testHelpers").printTable
 
 export type scope = {
-	[string]: luau.AstExpr,
+	[string]: syntax.CstNode,
 }
 
 export type variableStore = {
-	[luau.AstExpr]: number,
+	[syntax.CstNode]: number,
 }
 
 export type deletionStore = {
-	[luau.AstExpr]: boolean,
+	[syntax.CstNode]: boolean,
 }
 
 --[[
@@ -21,7 +21,7 @@ export type deletionStore = {
 ]]
 export type globalStore = {
 	[string]: {
-		ref: luau.AstExpr?,
+		ref: syntax.CstNode?,
 		beforeInitCnt: number,
 	},
 }
@@ -42,17 +42,15 @@ end
 	@param scopeStack - Scope stack used to keep track of current scope; declared variables are added to the current scope
 ]]
 local function handleVarDeclaration(
-	declaredVars: luau.Punctuated<luau.AstLocal>,
+	declaredVars: syntax.CstPunctuated<syntax.CstLocal>,
 	variables: variableStore,
 	scopeStack: { scope }
 )
 	if declaredVars then
 		for _, v in declaredVars do
-			if v.node then
-				if not excludeVarName(v.node.name.text) then
-					variables[v.node] = 0 -- Initialize usage count to 0
-					scopeStack[#scopeStack][v.node.name.text] = v.node -- Add to current scope
-				end
+			if not excludeVarName(v.name.text) then
+				variables[v] = 0 -- Initialize usage count to 0
+				scopeStack[#scopeStack][v.name.text] = v -- Add to current scope
 			end
 		end
 	end
@@ -66,13 +64,15 @@ end
 	@param assignedVals - Array of value nodes being assigned
 	@param variables - Store tracking variable usage counts
 ]]
-local function handleAssign(assignedVars, assignedVals, variables: variableStore)
+local function handleAssign(
+	assignedVars: syntax.CstPunctuated<syntax.CstExpr>,
+	assignedVals: syntax.CstPunctuated<syntax.CstExpr>,
+	variables: variableStore
+)
 	if assignedVars then
 		for _, v in assignedVars do
-			if v.node then
-				if variables[v.node["local"]] then
-					variables[v.node["local"]] -= 1
-				end
+			if v.tag == "local" and variables[v["local"]] then
+				variables[v["local"]] -= 1
 			end
 		end
 	end
@@ -84,7 +84,7 @@ end
 	@param node - The AST node representing the variable reference
 	@param variables - Store tracking variable usage counts
 ]]
-local function handleVarReference(node: luau.AstExprLocal, variables: variableStore)
+local function handleVarReference(node: syntax.CstExprLocal, variables: variableStore)
 	-- Local references store the original variable declaration in the 'local' field
 	-- This allows us to match the reference with its declaration
 	if variables[node["local"]] then
@@ -124,7 +124,7 @@ end
 	@return deletions - Table of variable nodes marked for deletion (usage count = 0)
 	@return numDeletions - Count of variables marked for deletion
 ]]
-local function findVariables(block: luau.AstStatBlock)
+local function findVariables(block: syntax.CstStatBlock)
 	local deletions: deletionStore = {}
 	local globals: globalStore = {} -- Stores global function references and call counts before definition
 	local variables: variableStore = {} -- Stores varReference : useCount for use in deletion
@@ -133,14 +133,15 @@ local function findVariables(block: luau.AstStatBlock)
 	local getVarsVisitor = visitor.create()
 
 	getVarsVisitor.visitStatBlock = function(block)
-		table.insert(scopeStack, {}) -- Push new scope frame to stack
+		local frame: scope = {}
+		table.insert(scopeStack, frame) -- Push new scope frame to stack
 		return true
 	end
 	getVarsVisitor.visitStatBlockEnd = function(block)
 		table.remove(scopeStack, #scopeStack) -- Pop current scope from stack
 	end
 
-	getVarsVisitor.visitStatLocalDeclaration = function(statement: luau.AstStatLocal)
+	getVarsVisitor.visitStatLocalDeclaration = function(statement: syntax.CstStatLocal)
 		handleVarDeclaration(statement.variables, variables, scopeStack)
 		return true
 	end
@@ -150,7 +151,7 @@ local function findVariables(block: luau.AstStatBlock)
 		Registers the function name AST reference in the store and scope.
 		Note: Function parameters are not analyzed for usage as they're acceptable to be unused.
 	]]
-	getVarsVisitor.visitStatLocalFunction = function(statement: luau.AstStatLocalFunction)
+	getVarsVisitor.visitStatLocalFunction = function(statement: syntax.CstStatLocalFunction)
 		if not excludeVarName(statement.name.name.text) then
 			variables[statement.name] = 0 -- Initialize usage count
 			scopeStack[#scopeStack][statement.name.name.text] = statement.name -- Add to current scope
@@ -164,27 +165,28 @@ local function findVariables(block: luau.AstStatBlock)
 		We use the function name (string, not AST node name) to index into globals.
 		When we find the function declaration, we then store the actual AST node reference.
 	]]
-	getVarsVisitor.visitStatFunction = function(statement: luau.AstStatFunction)
-		if statement.name.name then
-			local funcName = statement.name.name.text
+	getVarsVisitor.visitStatFunction = function(statement: syntax.CstStatFunction)
+		local name = statement.name
+		if name.tag == "global" then
+			local funcName = name.name.text
 			if not excludeVarName(funcName) then
 				if not globals[funcName] then
 					globals[funcName] = {
-						ref = statement.name,
+						ref = name,
 						beforeInitCnt = 0,
 					}
 				else
-					globals[statement.name.name.text].ref = statement.name
+					globals[funcName].ref = name
 				end
 				-- visitExpression will count the function definition as a use, so we decrement by one here
-				variables[statement.name] = globals[statement.name.name.text].beforeInitCnt - 1
+				variables[name] = globals[funcName].beforeInitCnt - 1
 			end
 			-- Global functions don't need to be added to scope stack since they're accessible everywhere
 		end
 		return true
 	end
 
-	getVarsVisitor.visitExprLocal = function(expression: luau.AstExprLocal)
+	getVarsVisitor.visitExprLocal = function(expression: syntax.CstExprLocal)
 		handleVarReference(expression, variables)
 		return true
 	end
@@ -194,7 +196,7 @@ local function findVariables(block: luau.AstStatBlock)
 		Increments usage count for global functions that are already defined.
 		For references before definition, tracks the count to apply later when definition is found.
 	]]
-	getVarsVisitor.visitExprGlobal = function(expression: luau.AstExprGlobal)
+	getVarsVisitor.visitExprGlobal = function(expression: syntax.CstExprGlobal)
 		local globalFuncName
 		globalFuncName = expression.name.text
 		if not globals[globalFuncName] then
@@ -221,7 +223,7 @@ local function findVariables(block: luau.AstStatBlock)
 		The AST node accessed by visitTypeReference has no access to the "local" references we use as keys in our variable store,
 		Thus, we search the scope stack to find the appropriate variable reference 
 	]]
-	getVarsVisitor.visitTypeReference = function(expression: luau.AstTypeReference)
+	getVarsVisitor.visitTypeReference = function(expression: syntax.CstTypeReference)
 		if expression.prefix then
 			local varName = expression.prefix.text
 			searchScopeStack(scopeStack, varName, variables)
@@ -229,13 +231,13 @@ local function findVariables(block: luau.AstStatBlock)
 		return true
 	end
 
-	getVarsVisitor.visitStatAssign = function(expression: luau.AstStatAssign)
+	getVarsVisitor.visitStatAssign = function(expression: syntax.CstStatAssign)
 		handleAssign(expression.variables, expression.values, variables)
 		return true
 	end
 
 	-- Execute the visitor on the block
-	visitor.visitblock(block, getVarsVisitor)
+	visitor.visitBlock(block, getVarsVisitor)
 
 	-- Debug output of all variables and their usage counts
 	print("Variables:")

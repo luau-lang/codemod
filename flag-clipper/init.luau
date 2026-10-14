@@ -1,7 +1,6 @@
-local luau = require("@lute/luau")
-
 local parser = require("@std/syntax/parser")
 local printer = require("@std/syntax/printer")
+local syntax = require("@std/syntax")
 local visitor = require("@std/syntax/visitor")
 
 local codemod = require("./lib/types")
@@ -9,35 +8,15 @@ local sourcemap = require("./require-resolver/sourcemap")
 local requireTracer = require("./require-resolver/tracer")
 local fileResolver = require("./require-resolver/resolver")
 
+local Rewriter = require("@self/Rewriter")
 local TrackReferences = require("@self/TrackReferences")
+local evaluate = require("@self/evaluate")
 local isFlagModule = require("@self/matchers/isFlagModule")
-local modified = require("@self/modified")
 local simplifyExpression = require("@self/simplifyExpression")
 local simplifyBlock = require("@self/simplifyBlock")
 
 --- Global cache for sourcemap data
 local SourcemapData: sourcemap.SourcemapData? = nil
-
-local function inplaceReplace(old: luau.AstExpr, new: luau.AstExpr, references: TrackReferences.TrackReferences)
-	if old == new then
-		return
-	end
-
-	-- We abuse the fact that everything is table references, and inplace change the old node into the new one
-	-- TODO: we should probably make mutability more explicit
-	table.clear(old)
-
-	for k, v in new do
-		old[k] = v
-	end
-
-	-- Since `new` expr is now replacing `old`, we need to update the references mapping as it works
-	-- based on table pointer equality
-	references._expressions[old] = references._expressions[new]
-	references._simplifiedBinaries[old] = references._simplifiedBinaries[new]
-
-	modified.setModified(old)
-end
 
 type Options = {
 	flag: string,
@@ -70,29 +49,28 @@ local function transform(ctx: codemod.Context<Options>)
 		return codemod.DELETION_MARKER
 	end
 
-	local flagVisitor = visitor.create()
-
-	local simplifyCtx = {
-		flagName = ctx.options.flag,
+	local rewriter = Rewriter.new(references)
+	local simplifyCtx: evaluate.EvaluateContext = {
 		flagValue = ctx.options.value,
 		references = references,
+		rewriter = rewriter,
 	}
+
+	local flagVisitor = visitor.create()
 
 	-- TODO: might want to double check the complexity here, since `simplifyExpression` is also recursive
 	-- do we end up simplifying it twice?
-	flagVisitor.visitExprEnd = function(expression: luau.AstExpr)
-		local newExpression = simplifyExpression(expression, simplifyCtx)
-		inplaceReplace(expression, newExpression, references)
+	flagVisitor.visitExprEnd = function(expression: syntax.CstExpr)
+		rewriter:replace(expression, simplifyExpression(expression, simplifyCtx))
 	end
 
-	flagVisitor.visitStatBlockEnd = function(block)
-		local newBlock = simplifyBlock(block, simplifyCtx)
-		block.statements = newBlock.statements
+	flagVisitor.visitStatBlockEnd = function(block: syntax.CstStatBlock)
+		simplifyBlock(block, simplifyCtx)
 	end
 
-	visitor.visitblock(block, flagVisitor)
+	visitor.visitBlock(block, flagVisitor)
 
-	return printer.printfile({ root = block, eof = result.eof })
+	return printer.printFile(result, rewriter.replacements)
 end
 
 return {

@@ -1,20 +1,20 @@
 local parser = require("@std/syntax/parser")
+local Rewriter = require("../Rewriter")
 local evaluate = require("../evaluate")
 local TrackReferences = require("../TrackReferences")
 
 local function apply(source: string, flagName: string?, flagValue: boolean?): boolean?
-	flagName = flagName or "FlagName"
-	flagValue = if flagValue ~= nil then flagValue else true
+	local value = if flagValue ~= nil then flagValue else true
 
-	local references = TrackReferences.new(flagName or "FlagName", {})
+	local references = TrackReferences.new(flagName or "FlagName", value, {})
 
 	local context: evaluate.EvaluateContext = {
-		flagName = flagName,
-		flagValue = flagValue,
+		flagValue = value,
 		references = references,
+		rewriter = Rewriter.new(references),
 	}
 
-	local parseResult = parser.parseexpr(source)
+	local parseResult = parser.parseExpr(source)
 	references:_visitExpressionForTesting(parseResult)
 	return evaluate(parseResult, context)
 end

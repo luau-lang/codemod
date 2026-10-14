@@ -28,7 +28,7 @@ local function parseConfig(filepath: string, baseConfig: LuauConfig)
 	local directory = path.dirname(filepath)
 	assert(directory, "expected filepath to have a directory part")
 
-	local contents = fs.readfiletostring(filepath)
+	local contents = fs.readFileToString(filepath)
 	local decoded = json.deserialize(contents)
 	assert(typeof(decoded) == "table", "expected .luaurc to contain a table")
 

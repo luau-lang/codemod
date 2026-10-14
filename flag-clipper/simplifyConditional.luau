@@ -1,73 +1,77 @@
-local luau = require("@lute/luau")
+local syntax = require("@std/syntax")
 
+local Rewriter = require("./Rewriter")
 local evaluate = require("./evaluate")
+
+local getThenBody = Rewriter.getThenBody
 
 --- Simplifies a conditional based on the evaluated condition
 --- Works for both if statements and if expressions
+--- Returns the conditional itself if it is kept, otherwise the body that replaces it (or nil if it is removed)
 local function simplifyConditional(
-	node: luau.AstStatIf | luau.AstExprIfElse,
+	node: syntax.CstStatIf | syntax.CstExprIfElse,
 	ctx: evaluate.EvaluateContext
-): luau.AstStat | luau.AstExpr
+): (Rewriter.ConditionalBody | syntax.CstStatIf)?
 	-- This is performed in post, so the conditional expression is already simplified
 	local conditionResult = evaluate(node.condition, ctx)
 	if conditionResult == true then
 		-- Delete the elseif / else block
-		if node.kind == "stat" then
-			return node.thenblock
-		else
-			return node.thenexpr
-		end
+		return getThenBody(node)
 	end
 
+	local parts: Rewriter.ConditionalParts = {
+		ifKeyword = { token = node.ifKeyword },
+		condition = node.condition,
+		thenKeyword = node.thenKeyword,
+		thenBody = getThenBody(node),
+		elseifs = {},
+		elseKeyword = if node.elseKeyword then { token = node.elseKeyword } else nil,
+		elseBody = if node.kind == "stat" then node.elseBlock else node.elseExpr,
+		endKeyword = if node.kind == "stat" then node.endKeyword else nil,
+	}
+	local changed = false
+
 	-- Handle if we have an elseif
-	local elseifs: { luau.AstStatElseIf | luau.AstExprIfElseIfs } = {}
-	for _, elseifNode in node.elseifs do
+	for _, elseifNode: Rewriter.ConditionalElseIf in node.elseifs :: { Rewriter.ConditionalElseIf } do
 		local elseifConditionResult = evaluate(elseifNode.condition, ctx)
 		if elseifConditionResult == true then
 			-- Replace the else block with the contents of this node
 			-- Do not progress any further (as further conditions are no longer reachable)
-			node.elsekeyword = elseifNode.elseifkeyword
-			node.elsekeyword.text = "else"
-			node.elsekeyword.trailingtrivia = elseifNode.thenkeyword.trailingtrivia
-			if node.kind == "stat" then
-				node.elseblock = elseifNode.thenblock
-			else
-				node.elseexpr = elseifNode.thenexpr
-			end
+			parts.elseKeyword = {
+				token = elseifNode.elseIfKeyword,
+				text = "else",
+				trailingTrivia = elseifNode.thenKeyword.trailingTrivia,
+			}
+			parts.elseBody = getThenBody(elseifNode)
+			changed = true
 			break
 		elseif elseifConditionResult == false then
 			-- Skip (i.e. delete) the elseif node
+			changed = true
 			continue
 		end
 
-		table.insert(elseifs, elseifNode)
+		table.insert(parts.elseifs, elseifNode)
 	end
 
 	if conditionResult == false then
 		-- If block must be deleted
-		if #elseifs > 0 then
-			-- Replace if with first else if
-			local firstElseIf = table.remove(elseifs, 1)
-			assert(firstElseIf ~= nil, "Luau")
-
-			node.ifkeyword = (firstElseIf.elseifkeyword :: any) :: luau.Token<"if">
-			node.ifkeyword.text = "if"
-			node.condition = firstElseIf.condition
-			node.thenkeyword = firstElseIf.thenkeyword
-			if node.kind == "stat" then
-				node.thenblock = firstElseIf.thenblock
-			else
-				node.thenexpr = firstElseIf.thenexpr
-			end
-			node.elseifs = elseifs
-
-			return node
-		else
-			return if node.kind == "stat" then node.elseblock else node.elseexpr
+		local firstElseIf = table.remove(parts.elseifs, 1)
+		if firstElseIf == nil then
+			return parts.elseBody
 		end
+
+		-- Replace if with first else if
+		parts.ifKeyword = { token = firstElseIf.elseIfKeyword, text = "if" }
+		parts.condition = firstElseIf.condition
+		parts.thenKeyword = firstElseIf.thenKeyword
+		parts.thenBody = getThenBody(firstElseIf)
+		changed = true
 	end
 
-	node.elseifs = elseifs
+	if changed then
+		ctx.rewriter:setConditional(node, parts)
+	end
 
 	return node
 end

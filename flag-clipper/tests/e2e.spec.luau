@@ -364,7 +364,7 @@ local function test_snapshots()
 		return path.joinPath(outputDirectory, relativePath)
 	end
 
-	for _, test in fs.listdirectory(baseDirectory) do
+	for _, test in fs.listDirectory(baseDirectory) do
 		assert(test.type == "dir")
 		print("Running", test.name)
 
@@ -381,7 +381,7 @@ local function test_snapshots()
 		}
 
 		local sourcemapPath = path.joinPath(testDirectory, "sourcemap.json")
-		local hasSourcemap = pcall(fs.readfiletostring, sourcemapPath)
+		local hasSourcemap = pcall(fs.readFileToString, sourcemapPath)
 		if hasSourcemap then
 			options.sourcemap = sourcemapPath
 		end
@@ -389,7 +389,7 @@ local function test_snapshots()
 		codemod.initialize({ options = options })
 
 		for _, filepath in sources do
-			local source = fs.readfiletostring(filepath)
+			local source = fs.readFileToString(filepath)
 			local ctx = {
 				path = filepath,
 				source = source,
@@ -398,16 +398,16 @@ local function test_snapshots()
 			local result = codemod.transform(ctx)
 
 			local outputPath = getOutputLocation(outputDirectory, filepath)
-			local outputExists, expectedContents = pcall(fs.readfiletostring, outputPath)
+			local outputExists, expectedContents = pcall(fs.readFileToString, outputPath)
 			if outputExists then
 				assert(result == expectedContents)
 			else
 				local hasOutputDirectory = pcall(fs.type, outputDirectory)
 				if not hasOutputDirectory then
-					fs.mkdir(outputDirectory)
+					fs.createDirectory(outputDirectory)
 				end
 
-				fs.writestringtofile(outputPath, result)
+				fs.writeStringToFile(outputPath, result)
 			end
 		end
 	end

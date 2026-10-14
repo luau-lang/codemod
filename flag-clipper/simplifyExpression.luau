@@ -1,141 +1,151 @@
-local luau = require("@lute/luau")
-local printer = require("@std/syntax/printer")
+local syntax = require("@std/syntax")
 
-local createConstantBoolean = require("./createConstantBoolean")
 local evaluate = require("./evaluate")
-local modified = require("./modified")
 local simplifyConditional = require("./simplifyConditional")
-local trivia = require("./trivia")
 
-local function isConstantTrueValue(expression: luau.AstExpr, ctx: evaluate.EvaluateContext)
+local simplify: (expression: syntax.CstExpr, ctx: evaluate.EvaluateContext) -> syntax.CstExpr
+
+local function isConstantTrueValue(expression: syntax.CstExpr, ctx: evaluate.EvaluateContext)
 	local value = evaluate(expression, ctx)
 	return value == true
 end
 
-local function isConstantFalseValue(expression: luau.AstExpr, ctx: evaluate.EvaluateContext)
+local function isConstantFalseValue(expression: syntax.CstExpr, ctx: evaluate.EvaluateContext)
 	local value = evaluate(expression, ctx)
 	return value == false
 end
 
-local function simplifyBinary(expression: luau.AstExprBinary, ctx: evaluate.EvaluateContext): luau.AstExpr
+local function simplifyBinary(expression: syntax.CstExprBinary, ctx: evaluate.EvaluateContext): syntax.CstExpr
+	local simplifiedBinaries = ctx.rewriter.simplifiedBinaries
+	local lhs, rhs = expression.lhsOperand, expression.rhsOperand
+
 	if expression.operator.text == "and" then
-		if isConstantTrueValue(expression.lhsoperand, ctx) then
+		if isConstantTrueValue(lhs, ctx) then
 			-- true and x => x
-			ctx.references._simplifiedBinaries[expression.rhsoperand] = true
-			return simplify(expression.rhsoperand, ctx)
-		elseif isConstantFalseValue(expression.lhsoperand, ctx) then
+			simplifiedBinaries[rhs] = true
+			return simplify(rhs, ctx)
+		elseif isConstantFalseValue(lhs, ctx) then
 			-- false and x => false
-			ctx.references._simplifiedBinaries[expression.lhsoperand] = true
-			return simplify(expression.lhsoperand, ctx)
-		elseif isConstantTrueValue(expression.rhsoperand, ctx) then
+			simplifiedBinaries[lhs] = true
+			return simplify(lhs, ctx)
+		elseif isConstantTrueValue(rhs, ctx) then
 			-- x and true => x
-			ctx.references._simplifiedBinaries[expression.lhsoperand] = true
-			return simplify(expression.lhsoperand, ctx)
-		elseif isConstantFalseValue(expression.rhsoperand, ctx) then
+			simplifiedBinaries[lhs] = true
+			return simplify(lhs, ctx)
+		elseif isConstantFalseValue(rhs, ctx) then
 			-- x and false => false
-			ctx.references._simplifiedBinaries[expression.rhsoperand] = true
-			return simplify(expression.rhsoperand, ctx)
+			simplifiedBinaries[rhs] = true
+			return simplify(rhs, ctx)
 		end
 	elseif expression.operator.text == "or" then
 		-- Handle the case for pseudo-ternaries (FlagValue and x or y)
 		-- Due to precedence rules, this would be simplified originally to (x or y)
 		-- We can check if 'x' is modified, and then simplify it further as a pseudo-ternary
-		if modified.isModified(expression.lhsoperand) then
-			if isConstantFalseValue(expression.lhsoperand, ctx) then
-				ctx.references._simplifiedBinaries[expression.rhsoperand] = true
-				return expression.rhsoperand
+		if ctx.rewriter:isModified(lhs) then
+			if isConstantFalseValue(lhs, ctx) then
+				simplifiedBinaries[rhs] = true
+				return rhs
 			else
-				ctx.references._simplifiedBinaries[expression.lhsoperand] = true
-				return expression.lhsoperand
+				simplifiedBinaries[lhs] = true
+				return lhs
 			end
 		end
 
-		if isConstantTrueValue(expression.lhsoperand, ctx) then
+		if isConstantTrueValue(lhs, ctx) then
 			-- true or x => true
-			ctx.references._simplifiedBinaries[expression.lhsoperand] = true
-			return simplify(expression.lhsoperand, ctx)
-		elseif isConstantFalseValue(expression.lhsoperand, ctx) then
+			simplifiedBinaries[lhs] = true
+			return simplify(lhs, ctx)
+		elseif isConstantFalseValue(lhs, ctx) then
 			-- false or x => x
-			ctx.references._simplifiedBinaries[expression.rhsoperand] = true
-			return simplify(expression.rhsoperand, ctx)
-		elseif isConstantTrueValue(expression.rhsoperand, ctx) then
+			simplifiedBinaries[rhs] = true
+			return simplify(rhs, ctx)
+		elseif isConstantTrueValue(rhs, ctx) then
 			-- x or true => true
-			ctx.references._simplifiedBinaries[expression.rhsoperand] = true
-			return simplify(expression.rhsoperand, ctx)
-		elseif isConstantFalseValue(expression.rhsoperand, ctx) then
+			simplifiedBinaries[rhs] = true
+			return simplify(rhs, ctx)
+		elseif isConstantFalseValue(rhs, ctx) then
 			-- x or false => x
-			ctx.references._simplifiedBinaries[expression.lhsoperand] = true
-			return simplify(expression.lhsoperand, ctx)
+			simplifiedBinaries[lhs] = true
+			return simplify(lhs, ctx)
 		end
 	end
 
 	return expression
 end
 
-local function simplifyTable(expression: luau.AstExprTable, ctx: evaluate.EvaluateContext)
+local function simplifyTable(expression: syntax.CstExprTable, ctx: evaluate.EvaluateContext): syntax.CstExpr
+	local rewriter = ctx.rewriter
 	local entries = {}
-	for _, field in expression.entries do
+	local changed = false
+
+	for _, field in rewriter:tableEntries(expression) do
 		--- Remove fields from a table that directly reference the removed Flag
 		if
-			ctx.references:isReference(field.value)
-			and not (ctx.references:isCompoundReference(field.value) or ctx.references._simplifiedBinaries[field.value])
+			rewriter:isReference(field.value)
+			and not (rewriter:isCompoundReference(field.value) or rewriter.simplifiedBinaries[field.value])
 		then
+			changed = true
 			continue
 		end
 
 		--- Evaluate references to the flag if available, and replace the fields in the table with the evaluation
 		local constantEvaluation = evaluate(field.value, ctx)
 		if constantEvaluation ~= nil then
-			field.value = createConstantBoolean(
-				constantEvaluation,
-				trivia.getLeadingTrivia(field.value),
-				trivia.getTrailingTrivia(field.value)
-			)
+			rewriter:setConstant(field.value, constantEvaluation)
 		end
 
 		--- Remove fields from a table if they were simplified by the flag-clipper, and are now `nil`
-		if modified.isModified(field.value) and field.value.tag == "nil" then
-			continue
+		if rewriter:isModified(field.value) then
+			local value = rewriter:view(field.value)
+			if value and value.tag == "nil" then
+				changed = true
+				continue
+			end
 		end
 
 		table.insert(entries, field)
 	end
-	expression.entries = entries
+
+	if changed then
+		rewriter:setTableEntries(expression, entries)
+	end
+
 	return expression
 end
 
-local function simplifyCall(expression: luau.AstExprCall, ctx: evaluate.EvaluateContext)
+local function simplifyCall(expression: syntax.CstExprCall, ctx: evaluate.EvaluateContext): syntax.CstExpr
 	-- we only care abt call args
-	local args = {}
 	for _, arg in expression.arguments do
 		--- Evaluate references to the flag if available, and replace the args to the call with the evaluation
-		local constantEvaluation = evaluate(arg.node, ctx)
+		local constantEvaluation = evaluate(arg, ctx)
 		if constantEvaluation ~= nil then
-			arg.node = createConstantBoolean(
-				constantEvaluation,
-				trivia.getLeadingTrivia(arg.node),
-				trivia.getTrailingTrivia(arg.node)
-			)
+			ctx.rewriter:setConstant(arg, constantEvaluation)
 		end
-
-		table.insert(args, arg)
 	end
-	expression.arguments = args
+
 	return expression
 end
 
-function simplify(expression: luau.AstExpr, ctx: evaluate.EvaluateContext): luau.AstExpr
-	if expression.tag == "call" then
-		return simplifyCall(expression, ctx)
-	elseif expression.tag == "binary" then
-		return simplifyBinary(expression, ctx)
-	elseif expression.tag == "conditional" then
-		return simplifyConditional(expression, ctx)
-	elseif expression.tag == "table" then
-		return simplifyTable(expression, ctx)
+--- Simplifies the expression, returning the expression that it should be replaced with
+--- (or the expression itself, if it should be kept)
+function simplify(expression: syntax.CstExpr, ctx: evaluate.EvaluateContext): syntax.CstExpr
+	local effective = ctx.rewriter:view(expression)
+	if effective == nil then
+		return expression
 	end
 
-	return expression
+	local result: syntax.CstExpr = effective
+	if effective.tag == "call" then
+		result = simplifyCall(effective, ctx)
+	elseif effective.tag == "binary" then
+		result = simplifyBinary(effective, ctx)
+	elseif effective.tag == "conditional" then
+		result = simplifyConditional(effective, ctx) :: syntax.CstExpr
+	elseif effective.tag == "table" then
+		result = simplifyTable(effective, ctx)
+	end
+
+	return if result == effective then expression else result
 end
 
 return simplify

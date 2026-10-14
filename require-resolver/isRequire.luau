@@ -1,6 +1,6 @@
-local luau = require("@lute/luau")
+local syntax = require("@std/syntax")
 
-local function isRequire(node: luau.AstExpr)
+local function isRequire(node: syntax.CstExpr)
 	return node.tag == "call"
 		and node.func.tag == "global"
 		and node.func.name.text == "require"

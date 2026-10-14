@@ -16,7 +16,7 @@ local function outputMatch(output: findVariablesUtils.variableStore, expectedOut
 	local passedCases = 0
 	for var, numUses in output do
 		local varName = var.name.text :: string
-		local varDeclarationLine = var.name.location.beginline -- previously lines we're 0indexed, now they're 1indexed
+		local varDeclarationLine = var.name.location.beginLine
 		print("Var Declaration Line", varDeclarationLine)
 		local outputMatchKey = varName .. "_" .. tostring(varDeclarationLine)
 		assert(numUses == expectedOutput[outputMatchKey])
@@ -31,7 +31,7 @@ local function test_findVariables(codeBlock, expectedOutput)
 	print("\n======================\nCurrent Case:")
 	print(codeBlock)
 
-	local block = parser.parseblock(codeBlock)
+	local block = parser.parseBlock(codeBlock)
 
 	local outputVars, _outputDels = findVariables(block)
 	outputMatch(outputVars, expectedOutput)

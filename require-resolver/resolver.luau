@@ -1,4 +1,4 @@
-local luau = require("@lute/luau")
+local syntax = require("@std/syntax")
 local sourcemap = require("./sourcemap")
 
 export type ModuleName = string
@@ -7,7 +7,7 @@ export type ModuleInfo = {
 	moduleName: string,
 }
 
-export type Resolver = (context: ModuleInfo?, expression: luau.AstExpr) -> ModuleInfo?
+export type Resolver = (context: ModuleInfo?, expression: syntax.CstExpr) -> ModuleInfo?
 
 local function resolveStringRequire(path: string, from: ModuleName): ModuleInfo?
 	print("TODO: support string requires")
@@ -37,13 +37,13 @@ end
 --- Creates a standard file resolver for require resolution.
 --- Supports string requires, including aliases (based off luaurc), as well as Roblox style requires
 local function createFileResolver(sourcemapData: sourcemap.SourcemapData?)
-	return function(context: ModuleInfo?, expression: luau.AstExpr): ModuleInfo?
+	return function(context: ModuleInfo?, expression: syntax.CstExpr): ModuleInfo?
 		if context == nil then
 			return nil
 		end
 
 		if expression.tag == "string" then
-			return resolveStringRequire(expression.text, context.moduleName)
+			return resolveStringRequire(expression.value.text, context.moduleName)
 		elseif expression.tag == "global" then
 			local globalName = expression.name.text
 			if globalName == "game" then
@@ -69,7 +69,7 @@ local function createFileResolver(sourcemapData: sourcemap.SourcemapData?)
 			end
 		elseif expression.tag == "index" then
 			if expression.index.tag == "string" then
-				local indexName = expression.index.text
+				local indexName = expression.index.value.text
 				if indexName == "Parent" then
 					return { moduleName = getParentPath(context.moduleName) }
 				else
@@ -80,8 +80,9 @@ local function createFileResolver(sourcemapData: sourcemap.SourcemapData?)
 			assert(expression.func.tag == "indexname")
 			local functionName = expression.func.index.text
 
-			if expression.arguments[1].node.tag == "string" then
-				local argument = expression.arguments[1].node.text
+			local firstArgument = expression.arguments[1]
+			if firstArgument.tag == "string" then
+				local argument = firstArgument.value.text
 
 				if functionName == "GetService" then
 					assert(context.moduleName == "game")

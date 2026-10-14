@@ -1,5 +1,5 @@
 local fs = require("@std/fs")
-local luau = require("@lute/luau")
+local syntax = require("@std/syntax")
 local parser = require("@std/syntax/parser")
 
 local visitor = require("@std/syntax/visitor")
@@ -38,27 +38,18 @@ type TableData = {
 type TrackReferencesData = {
 	--- A set of AstLocals that are known to correspond to a flag access or an expression containing a flag which simplifies to a boolean literal
 	--- The locals can be a constant reference, or a function definition
-	_locals: { [luau.AstLocal]: boolean },
+	_locals: { [syntax.CstLocal]: boolean },
 	--- A set of expressions that are known to correspond to a flag access
 	--- This could be a local reference, or a require module
-	_expressions: { [luau.AstExpr]: boolean },
-
-	-- Cache for simplified binary expressions explicitly to avoid
-	-- removing table entries that have had their values simplified to a direct flag reference
-	-- for ex, suppose flag is true and we have: local table = { field = flag and something }
-	-- expressions simplify from inside out (post-order)
-	-- so we get to simplifying the table itself, we have: { field = flag }
-	-- normally, these are removed but bc value was originally `flag and something` we want to keep entry
-	-- so, we use this cache to catch such cases
-	_simplifiedBinaries: { [luau.AstExpr]: true },
+	_expressions: { [syntax.CstExpr]: boolean },
 
 	--- A set of global function names that are known to correspond to a flag access
 	--- Unlike flagLocalsSet, we do not track this via AstLocal reference, but just by the function name
 	_globalNames: { [string]: true },
 	--- Stores local variables that correspond to tables
-	_localTableData: { [luau.AstLocal]: TableData },
+	_localTableData: { [syntax.CstLocal]: TableData },
 	--- Stores expressions that correspond to tables, either directly or indirectly.
-	_expressionTableData: { [luau.AstExpr]: TableData },
+	_expressionTableData: { [syntax.CstExpr]: TableData },
 	_visitor: visitor.Visitor,
 }
 
@@ -89,10 +80,9 @@ function TrackReferences.new(
 	self._globalNames = {}
 	self._localTableData = {}
 	self._expressionTableData = {}
-	self._simplifiedBinaries = {}
 	self._visitor = visitor.create()
 
-	self._visitor.visitExpr = function(node: luau.AstExpr)
+	self._visitor.visitExpr = function(node: syntax.CstExpr)
 		if isFlagAccess(node, flagName) then
 			self._expressions[node] = flagValue
 		elseif isFlagFunction.isExprFlagFunction(node, flagName) then
@@ -121,7 +111,7 @@ function TrackReferences.new(
 		return true
 	end
 
-	self._visitor.visitExprEnd = function(node: luau.AstExpr)
+	self._visitor.visitExprEnd = function(node: syntax.CstExpr)
 		if node.tag == "call" then
 			local callExpr = node.func
 			if self._expressions[callExpr] then
@@ -152,27 +142,27 @@ function TrackReferences.new(
 
 			self._expressionTableData[node] = tableData
 		elseif node.tag == "binary" or (node.tag == "group" and node.expression.tag == "binary") then -- local
-			local toEval = if node.tag == "group" then node.expression :: luau.AstExprBinary else node
+			local toEval = if node.tag == "group" then node.expression :: syntax.CstExprBinary else node
 
 			if toEval.operator.text == "and" then
-				if self._expressions[toEval.lhsoperand] == false or self._expressions[toEval.rhsoperand] == false then
+				if self._expressions[toEval.lhsOperand] == false or self._expressions[toEval.rhsOperand] == false then
 					self._expressions[node] = false
 				elseif
-					self._expressions[toEval.lhsoperand] == true and self._expressions[toEval.rhsoperand] == true
+					self._expressions[toEval.lhsOperand] == true and self._expressions[toEval.rhsOperand] == true
 				then
 					self._expressions[node] = true
 				end
 			elseif toEval.operator.text == "or" then
-				if self._expressions[toEval.lhsoperand] == true or self._expressions[toEval.rhsoperand] == true then
+				if self._expressions[toEval.lhsOperand] == true or self._expressions[toEval.rhsOperand] == true then
 					self._expressions[node] = true
 				elseif
-					self._expressions[toEval.lhsoperand] == false and self._expressions[toEval.rhsoperand] == false
+					self._expressions[toEval.lhsOperand] == false and self._expressions[toEval.rhsOperand] == false
 				then
 					self._expressions[node] = false
 				end
 			end
 		elseif node.tag == "unary" or (node.tag == "group" and node.expression.tag == "unary") then
-			local toEval = if node.tag == "group" then node.expression :: luau.AstExprUnary else node
+			local toEval = if node.tag == "group" then node.expression :: syntax.CstExprUnary else node
 			if toEval.operator.text == "not" then
 				if self._expressions[toEval.operand] ~= nil then
 					self._expressions[node] = not self._expressions[toEval.operand]
@@ -181,31 +171,31 @@ function TrackReferences.new(
 		end
 	end
 
-	self._visitor.visitStatLocalDeclarationEnd = function(node: luau.AstStatLocal)
+	self._visitor.visitStatLocalDeclarationEnd = function(node: syntax.CstStatLocal)
 		for idx, variable in node.variables do
 			if #node.values < idx then
 				break
 			end
 
-			local value = node.values[idx].node
+			local value = node.values[idx]
 			if self._expressions[value] ~= nil then
-				self._locals[variable.node] = self._expressions[value]
+				self._locals[variable] = self._expressions[value]
 			end
 
 			if self._expressionTableData[value] then
-				self._localTableData[variable.node] = self._expressionTableData[value]
+				self._localTableData[variable] = self._expressionTableData[value]
 			end
 		end
 	end
 
-	self._visitor.visitStatLocalFunction = function(node: luau.AstStatLocalFunction)
+	self._visitor.visitStatLocalFunction = function(node: syntax.CstStatLocalFunction)
 		if isFlagFunction.isStmtFlagFunction(node, flagName) then
 			self._locals[node.name] = flagValue
 		end
 		return true
 	end
 
-	self._visitor.visitStatFunction = function(node: luau.AstStatFunction)
+	self._visitor.visitStatFunction = function(node: syntax.CstStatFunction)
 		if isFlagFunction.isStmtFlagFunction(node, flagName) then
 			if node.name.tag == "local" then
 				self._locals[node.name["local"]] = flagValue
@@ -219,15 +209,15 @@ function TrackReferences.new(
 	return setmetatable(self, TrackReferences)
 end
 
-function TrackReferences.visit(self: TrackReferences, block: luau.AstStatBlock)
-	visitor.visitblock(block, self._visitor)
+function TrackReferences.visit(self: TrackReferences, block: syntax.CstStatBlock)
+	visitor.visitBlock(block, self._visitor)
 end
 
-function TrackReferences._visitExpressionForTesting(self: TrackReferences, expression: luau.AstExpr)
-	visitor.visitexpression(expression, self._visitor)
+function TrackReferences._visitExpressionForTesting(self: TrackReferences, expression: syntax.CstExpr)
+	visitor.visitExpression(expression, self._visitor)
 end
 
-function TrackReferences.isLocalReference(self: TrackReferences, astLocal: luau.AstLocal): boolean
+function TrackReferences.isLocalReference(self: TrackReferences, astLocal: syntax.CstLocal): boolean
 	return self._locals[astLocal] ~= nil
 end
 
@@ -237,15 +227,15 @@ end
 
 --- Returns whether the provided expression is a reference to the flag being removed
 --- Either a direct reference, or an indirect reference via a local
-function TrackReferences.isReference(self: TrackReferences, expression: luau.AstExpr): boolean
+function TrackReferences.isReference(self: TrackReferences, expression: syntax.CstExpr): boolean
 	return self._expressions[expression] ~= nil
 end
 
-function TrackReferences.getReferenceValue(self: TrackReferences, expression: luau.AstExpr): boolean
+function TrackReferences.getReferenceValue(self: TrackReferences, expression: syntax.CstExpr): boolean
 	return self._expressions[expression]
 end
 
-function TrackReferences.isCompoundReference(self: TrackReferences, expression: luau.AstExpr): boolean
+function TrackReferences.isCompoundReference(self: TrackReferences, expression: syntax.CstExpr): boolean
 	return self._expressions[expression] ~= nil
 		and (
 			expression.tag == "unary"
@@ -254,7 +244,7 @@ function TrackReferences.isCompoundReference(self: TrackReferences, expression: 
 		)
 end
 
-local function getReturnedExpression(body: luau.AstStatBlock): luau.AstExpr?
+local function getReturnedExpression(body: syntax.CstStatBlock): syntax.CstExpr?
 	if #body.statements == 0 then
 		return nil
 	end
@@ -268,14 +258,14 @@ local function getReturnedExpression(body: luau.AstStatBlock): luau.AstExpr?
 		return nil
 	end
 
-	local expression = lastStmt.expressions[1].node
+	local expression = lastStmt.expressions[1]
 	return expression
 end
 
 --- Resolves the given expression to its require call, follows the require, then processes the
 --- resulting file for relevant information.
 function getModuleInfo(
-	expression: luau.AstExpr,
+	expression: syntax.CstExpr,
 	flagName: string,
 	flagValue: boolean,
 	requireInfo: requireTracer.RequireTracerResult,
@@ -306,8 +296,8 @@ function getModuleInfo(
 		return FlagModuleFileCache[requirePath]
 	end
 
-	local contents = fs.readfiletostring(requirePath)
-	local block = parser.parseblock(contents)
+	local contents = fs.readFileToString(requirePath)
+	local block = parser.parseBlock(contents)
 	assert(block)
 
 	local result: ModuleInfo = { isFlagModule = false, tableData = nil }

@@ -1,22 +1,23 @@
 local parser = require("@std/syntax/parser")
 local printer = require("@std/syntax/printer")
 
+local Rewriter = require("../Rewriter")
 local evaluate = require("../evaluate")
 local simplify = require("../simplifyExpression")
 local TrackReferences = require("../TrackReferences")
 
 local function printSimplify(source: string)
-	local expression = parser.parseexpr(source)
+	local expression = parser.parseExpr(source)
 	local references = TrackReferences.new("FlagName", true, {})
 	references:_visitExpressionForTesting(expression)
 
 	local context: evaluate.EvaluateContext = {
-		flagName = "FlagName",
 		flagValue = true,
 		references = references,
+		rewriter = Rewriter.new(references),
 	}
 
-	return printer.printnode(simplify(expression, context))
+	return printer.printNode(simplify(expression, context), context.rewriter.replacements)
 end
 
 local function case(str: string, exp: string)

@@ -1,6 +1,7 @@
 local parser = require("@std/syntax/parser")
 local printer = require("@std/syntax/printer")
 
+local Rewriter = require("../Rewriter")
 local evaluate = require("../evaluate")
 local simplifyBlock = require("../simplifyBlock")
 local TrackReferences = require("../TrackReferences")
@@ -18,15 +19,15 @@ local function apply(source: string, flagName: string?, flagValue: boolean?)
 	local references = TrackReferences.new(flagName or "FlagName", flagValue, {})
 
 	local context: evaluate.EvaluateContext = {
-		flagName = flagName,
 		flagValue = flagValue,
 		references = references,
+		rewriter = Rewriter.new(references),
 	}
 
 	local parseResult = parser.parse(source)
 	references:visit(parseResult.root)
-	parseResult.root = simplifyBlock(parseResult.root, context)
-	return printer.printfile(parseResult)
+	simplifyBlock(parseResult.root, context)
+	return printer.printFile(parseResult, context.rewriter.replacements)
 end
 
 local function test_removeDefinition()

@@ -14,7 +14,7 @@ end
 local function traverseDirectoryRecursive(directory: string, ignoreResolver: ignore.IgnoreResolver): { string }
 	local results = {}
 
-	for _, entry in fs.listdirectory(directory) do
+	for _, entry in fs.listDirectory(directory) do
 		local fullPath = path.joinPath(directory, entry.name)
 
 		if entry.type == "dir" then

@@ -64,13 +64,14 @@ local printer = require("@std/syntax/printer")
 
 function migration(ctx)
     local parsedResult = parser.parse(ctx.source)
-    return printer.printfile(parsedResult)
+    return printer.printFile(parsedResult)
 end
 
 return migration
 ```
 
-A visitor mechanism is also available for basic AST traversal and modification.
+The parsed tree is immutable. To modify the source, build a map of replacements from nodes to their new text, and
+pass it to the printer. A visitor mechanism is available for basic tree traversal:
 
 ```luau
 local parser = require("@std/syntax/parser")
@@ -79,16 +80,18 @@ local visitor = require("@std/syntax/visitor")
 
 function migration(ctx)
     local parsedResult = parser.parse(ctx.source)
+    local replacements = {}
 
-    local uppercaseVisitor = visitor.createVisitor()
+    local uppercaseVisitor = visitor.create()
 
-    uppercaseVisitor.visitLocalReference = function(node)
-        node.token.text = node.token.text:upper()
+    uppercaseVisitor.visitExprLocal = function(node)
+        replacements[node.token] = node.token.text:upper()
+        return true
     end
 
-    visitor.visitBlock(parsedResult.block, uppercaseVisitor)
+    visitor.visitBlock(parsedResult.root, uppercaseVisitor)
 
-    return printer.printfile(parsedResult)
+    return printer.printFile(parsedResult, replacements)
 end
 
 return migration
@@ -104,15 +107,16 @@ local query = require("@std/syntax/query")
 function migration(ctx)
     local parsedResult = parser.parse(ctx.source)
 
-    local requireCalls = query.selectExpression(parsedResult.root, function(node)
-        return isRequireCall(node)
-    end)
+    local replacements = query
+        .findAllFromRoot(parsedResult, function(node)
+            return if isRequireCall(node) then node else nil
+        end)
+        :map(function(call)
+            return call.arguments[1]
+        end)
+        :replace(convertToStringRequire)
 
-    for _, call in requireCalls do
-        call.arguments[1].node = convertToStringRequire(call.arguments[1])
-    end
-
-    return printer.printfile(parsedResult)
+    return printer.printFile(parsedResult, replacements)
 end
 
 return migration

@@ -2,7 +2,7 @@ local parser = require("@std/syntax/parser")
 local isFlagModule = require("../matchers/isFlagModule")
 
 local function test_emptyBlock()
-	local block = parser.parseblock([[
+	local block = parser.parseBlock([[
 
 	]])
 
@@ -10,7 +10,7 @@ local function test_emptyBlock()
 end
 
 local function test_blockWithNoReturn()
-	local block = parser.parseblock([[
+	local block = parser.parseBlock([[
 		local x = 1
 	]])
 
@@ -18,7 +18,7 @@ local function test_blockWithNoReturn()
 end
 
 local function test_blockWithReturnNoExpression()
-	local block = parser.parseblock([[
+	local block = parser.parseBlock([[
 		return
 	]])
 
@@ -26,7 +26,7 @@ local function test_blockWithReturnNoExpression()
 end
 
 local function test_blockWithUnrelatedReturn()
-	local block = parser.parseblock([[
+	local block = parser.parseBlock([[
 		return "value"
 	]])
 
@@ -34,7 +34,7 @@ local function test_blockWithUnrelatedReturn()
 end
 
 local function test_blockWithDefinitionReturn()
-	local block = parser.parseblock([[
+	local block = parser.parseBlock([[
 		return game:DefineFastFlag("FlagName")
 	]])
 
@@ -44,7 +44,7 @@ local function test_blockWithDefinitionReturn()
 end
 
 local function test_blockWithGetReturn()
-	local block = parser.parseblock([[
+	local block = parser.parseBlock([[
 		return game:GetFastFlag("FlagName")
 	]])
 
@@ -54,7 +54,7 @@ local function test_blockWithGetReturn()
 end
 
 local function test_blockWithFunctionReturn()
-	local block = parser.parseblock([[
+	local block = parser.parseBlock([[
 		return function()
 			return game:GetFastFlag("FlagName")
 		end
@@ -66,7 +66,7 @@ local function test_blockWithFunctionReturn()
 end
 
 local function test_blockWithVariableReturnPointingToFunction()
-	local block = parser.parseblock([[
+	local block = parser.parseBlock([[
 		local function getFFlag()
 			return game:GetFastFlag("FlagName")
 		end

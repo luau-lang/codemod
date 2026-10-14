@@ -3,7 +3,7 @@ local parser = require("@std/syntax/parser")
 local TrackReferences = require("../TrackReferences")
 
 local function isReference(source: string, flag: string?)
-	local expression = parser.parseexpr(source)
+	local expression = parser.parseExpr(source)
 	local references = TrackReferences.new(flag or "FlagName", true, {})
 	references:_visitExpressionForTesting(expression)
 	return references:isReference(expression)
@@ -18,7 +18,7 @@ local function test_directFlagAccess()
 end
 
 local function test_flagAccessViaLocalVariable()
-	local block = parser.parseblock([[
+	local block = parser.parseBlock([[
 		local flagValue = game:GetFastFlag("FlagName")
 		print(flagValue)
 	]])
@@ -29,7 +29,7 @@ local function test_flagAccessViaLocalVariable()
 	assert(call.expression.tag == "call")
 	assert(#call.expression.arguments == 1)
 
-	local expr = call.expression.arguments[1].node
+	local expr = call.expression.arguments[1]
 
 	local references = TrackReferences.new("FlagName", true, {})
 	references:visit(block)
@@ -37,7 +37,7 @@ local function test_flagAccessViaLocalVariable()
 end
 
 local function test_ignoreUnknownLocalVariables()
-	local block = parser.parseblock([[
+	local block = parser.parseBlock([[
 		local flagValue = ...
 		print(flagValue)
 	]])
@@ -52,7 +52,7 @@ local function test_ignoreUnknownLocalVariables()
 	assert(call.expression.tag == "call")
 	assert(#call.expression.arguments == 1)
 
-	local expr = call.expression.arguments[1].node
+	local expr = call.expression.arguments[1]
 
 	local references = TrackReferences.new("FlagName", true, {})
 	references:visit(block)
@@ -60,7 +60,7 @@ local function test_ignoreUnknownLocalVariables()
 end
 
 local function test_flagAccessViaLocalCall()
-	local block = parser.parseblock([[
+	local block = parser.parseBlock([[
 		local function getFlagValue()
 			return game:GetFastFlag("FlagName")
 		end
@@ -79,7 +79,7 @@ local function test_flagAccessViaLocalCall()
 end
 
 local function test_ignoreUnknownLocalCalls()
-	local block = parser.parseblock([[
+	local block = parser.parseBlock([[
 		local function getRandomValue() end
 		getRandomValue()
 	]])
@@ -94,7 +94,7 @@ local function test_ignoreUnknownLocalCalls()
 end
 
 local function test_flagAccessViaGlobalCall()
-	local block = parser.parseblock([[
+	local block = parser.parseBlock([[
 		function globalGetFlagValue()
 			return game:GetFastFlag("FlagName")
 		end
@@ -111,12 +111,12 @@ local function test_flagAccessViaGlobalCall()
 	references:visit(block)
 	assert(references:isReference(call.expression) == true)
 
-	-- expr = parser.parseexpr("randomGlobalCall()")
+	-- expr = parser.parseExpr("randomGlobalCall()")
 	-- assert(references:isReference(expr) == false)
 end
 
 local function test_ignoreUnknownGlobalCalls()
-	local block = parser.parseblock([[
+	local block = parser.parseBlock([[
 		function globalRandomFunction()
 		end
 		globalRandomFunction()
@@ -134,7 +134,7 @@ local function test_ignoreUnknownGlobalCalls()
 end
 
 local function test_flagAccessViaTableIndex()
-	local block = parser.parseblock([[
+	local block = parser.parseBlock([[
 		local tbl = {
 			flagValue = game:GetFastFlag("FlagName")
 		}
@@ -147,7 +147,7 @@ local function test_flagAccessViaTableIndex()
 	assert(call.expression.tag == "call")
 	assert(#call.expression.arguments == 1)
 
-	local expression = call.expression.arguments[1].node
+	local expression = call.expression.arguments[1]
 	assert(expression.tag == "indexname")
 
 	local references = TrackReferences.new("FlagName", true, {})
@@ -156,7 +156,7 @@ local function test_flagAccessViaTableIndex()
 end
 
 local function test_ignoreUnknownTableReference()
-	local block = parser.parseblock([[
+	local block = parser.parseBlock([[
 		local tbl = {
 			flagValue = game:GetFastFlag("FlagName")
 		}
@@ -169,7 +169,7 @@ local function test_ignoreUnknownTableReference()
 	assert(call.expression.tag == "call")
 	assert(#call.expression.arguments == 1)
 
-	local expression = call.expression.arguments[1].node
+	local expression = call.expression.arguments[1]
 	assert(expression.tag == "indexname")
 
 	local references = TrackReferences.new("FlagName", true, {})
@@ -178,7 +178,7 @@ local function test_ignoreUnknownTableReference()
 end
 
 local function test_flagAccessViaTableFunctionCall()
-	local block = parser.parseblock([[
+	local block = parser.parseBlock([[
 		local tbl = {
 			flagValue = function()
 				return game:GetFastFlag("FlagName")
@@ -200,7 +200,7 @@ local function test_flagAccessViaTableFunctionCall()
 end
 
 local function test_flagAccessViaNestedTables()
-	local block = parser.parseblock([[
+	local block = parser.parseBlock([[
 		local tbl = {
 			other = {
 				flagValue = game:GetFastFlag("FlagName")
@@ -215,7 +215,7 @@ local function test_flagAccessViaNestedTables()
 	assert(call.expression.tag == "call")
 	assert(#call.expression.arguments == 1)
 
-	local expression = call.expression.arguments[1].node
+	local expression = call.expression.arguments[1]
 	assert(expression.tag == "indexname")
 
 	local references = TrackReferences.new("FlagName", true, {})
@@ -224,15 +224,15 @@ local function test_flagAccessViaNestedTables()
 end
 
 local function test_binaryFlagAccess()
-	local block = parser.parseblock([[
+	local block = parser.parseBlock([[
 		local x = not game:DefineFastFlag("FlagName") and arbitraryCondition -- definitively evaluates to false
 		local y = game:DefineFastFlag("FlagName") or arbitraryCondition -- definitively evaluates to true
 	]])
 
 	assert(#block.statements == 2)
 
-	local andFlagAccess = block.statements[1].values[1].node
-	local orFlagAccess = block.statements[2].values[1].node
+	local andFlagAccess = block.statements[1].values[1]
+	local orFlagAccess = block.statements[2].values[1]
 
 	local references = TrackReferences.new("FlagName", true, {})
 	references:visit(block)
@@ -244,13 +244,13 @@ local function test_binaryFlagAccess()
 end
 
 local function test_unaryFlagAccess()
-	local block = parser.parseblock([[
+	local block = parser.parseBlock([[
 		local x = not game:DefineFastFlag("FlagName")
 	]])
 
 	assert(#block.statements == 1)
 
-	local unaryFlagAccess = block.statements[1].values[1].node
+	local unaryFlagAccess = block.statements[1].values[1]
 
 	local references = TrackReferences.new("FlagName", true, {})
 	references:visit(block)
@@ -260,15 +260,15 @@ local function test_unaryFlagAccess()
 end
 
 local function test_psuedoTernaryFlagAccess()
-	local block = parser.parseblock([[
+	local block = parser.parseBlock([[
 		local x = game:DefineFastFlag("FlagName") and (game:DefineFastFlag("FlagName") or abitraryCondition)
 		local y = not game:DefineFastFlag("FlagName") or (not game:DefineFastFlag("FlagName") and arbitraryCondition)
 	]])
 
 	assert(#block.statements == 2)
 
-	local a = block.statements[1].values[1].node
-	local b = block.statements[2].values[1].node
+	local a = block.statements[1].values[1]
+	local b = block.statements[2].values[1]
 
 	local references = TrackReferences.new("FlagName", true, {})
 	references:visit(block)
@@ -283,7 +283,7 @@ local function test_falsePositiveCompoundFlagAccess()
 	-- we only want to track a node if we can definitively simplify it's value to a boolean literal
 	-- so nodes like (assuming Flag is true): Flag and someCondition
 	-- should NOT be tracked
-	local block = parser.parseblock([[
+	local block = parser.parseBlock([[
 		local x = game:DefineFastFlag("FlagName") and arbitraryCondition
 		local y = not game:DefineFastFlag("FlagName") or arbitraryCondition
 		local z = game:DefineFastFlag("FlagName") and not game:DefineFastFlag("FlagName") or arbitraryCondition
@@ -291,9 +291,9 @@ local function test_falsePositiveCompoundFlagAccess()
 
 	assert(#block.statements == 3)
 
-	local andFlagAccess = block.statements[1].values[1].node
-	local orFlagAccess = block.statements[2].values[1].node
-	local psuedoTernaryFlagAccess = block.statements[3].values[1].node
+	local andFlagAccess = block.statements[1].values[1]
+	local orFlagAccess = block.statements[2].values[1]
+	local psuedoTernaryFlagAccess = block.statements[3].values[1]
 
 	local references = TrackReferences.new("FlagName", true, {})
 	references:visit(block)

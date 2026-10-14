@@ -2,7 +2,7 @@ local parser = require("@std/syntax/parser")
 local isFlagFunction = require("../matchers/isFlagFunction")
 
 local function parseStatement(source: string)
-	local block = parser.parseblock(source)
+	local block = parser.parseBlock(source)
 	assert(#block.statements == 1, "block must have one statement")
 	return block.statements[1]
 end
@@ -25,7 +25,7 @@ local function test_anonymousFunction()
 	assert(statement.tag == "local")
 	assert(#statement.values == 1)
 
-	local expression = statement.values[1].node
+	local expression = statement.values[1]
 
 	assert(isFlagFunction.isExprFlagFunction(expression, "FlagName") == true)
 end

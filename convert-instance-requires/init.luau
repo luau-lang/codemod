@@ -1,14 +1,15 @@
 --!strict
-local luau = require("@lute/luau")
 local process = require("@lute/process")
 
 local parser = require("@std/syntax/parser")
 local printer = require("@std/syntax/printer")
+local syntax = require("@std/syntax")
+local syntaxTypes = require("@std/syntax/types")
 
 local path = require("./lib/path")
 local codemod = require("./lib/types")
 
-local query = require("@std/syntax/query")
+local query = require("./lib/query")
 local isRequire = require("./require-resolver/isRequire")
 local fileResolver = require("./require-resolver/resolver")
 local requireTracer = require("./require-resolver/tracer")
@@ -18,18 +19,6 @@ local computeOptimalRequireString = require("@self/computeOptimalRequireString")
 
 --- Global cache for sourcemap data
 local SourcemapData: sourcemap.SourcemapData? = nil
-
-local function createString(text: string): luau.AstExprConstantString
-	return {
-		tag = "string",
-		leadingtrivia = {},
-		position = { line = 0, column = 0 },
-		text = text,
-		trailingtrivia = {},
-		quoteStyle = "double",
-		blockDepth = 0,
-	}
-end
 
 type Options = {
 	sourcemap: string,
@@ -49,12 +38,10 @@ local function transform(ctx: codemod.Context<Options>)
 	local requireInfo =
 		requireTracer.traceRequires(result.root, ctx.path, fileResolver.createFileResolver(SourcemapData))
 
-	local requireCalls = query.selectExpression(result.root, function(node: luau.AstExpr): luau.AstExprCall?
-		if isRequire(node) then
-			assert(node.tag == "call", "Luau")
-
+	local requireCalls = query.selectExpression(result.root, function(node: syntax.CstExpr): syntax.CstExprCall?
+		if node.tag == "call" and isRequire(node) then
 			-- Skip requires that are already string-based
-			if node.arguments[1].node.tag == "string" then
+			if node.arguments[1].tag == "string" then
 				return nil
 			end
 
@@ -63,16 +50,16 @@ local function transform(ctx: codemod.Context<Options>)
 		return nil
 	end)
 
-	for _, call in requireCalls do
-		assert(call, "Luau")
+	local replacements: syntaxTypes.Replacements = {}
 
+	for _, call in requireCalls do
 		local requireCallInfo = requireInfo[call]
 		if not requireCallInfo then
 			continue
 		end
 
-		local requirePath = requireCallInfo.moduleName
-		if sourcemap.isVirtualPath(requirePath) then
+		local requirePath: string? = requireCallInfo.moduleName
+		if requirePath and sourcemap.isVirtualPath(requirePath) then
 			requirePath = sourcemap.virtualPathToRealPath(SourcemapData, requirePath)
 		end
 
@@ -81,10 +68,10 @@ local function transform(ctx: codemod.Context<Options>)
 		end
 
 		local stringRequirePath = computeOptimalRequireString(ctx.path, requirePath)
-		call.arguments[1].node = createString(stringRequirePath)
+		replacements[call.arguments[1]] = { content = `"{stringRequirePath}"`, preserveTrivia = false }
 	end
 
-	return printer.printfile(result)
+	return printer.printFile(result, replacements)
 end
 
 return {
