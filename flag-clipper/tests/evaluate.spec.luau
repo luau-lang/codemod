@@ -1,20 +1,20 @@
-local parser = require("@std/syntax/parser")
-local Rewriter = require("../Rewriter")
+local parser = require("@lute/syntax/parser")
 local evaluate = require("../evaluate")
 local TrackReferences = require("../TrackReferences")
 
 local function apply(source: string, flagName: string?, flagValue: boolean?): boolean?
-	local value = if flagValue ~= nil then flagValue else true
+	flagName = flagName or "FlagName"
+	flagValue = if flagValue ~= nil then flagValue else true
 
-	local references = TrackReferences.new(flagName or "FlagName", value, {})
+	local references = TrackReferences.new(flagName or "FlagName", {})
 
 	local context: evaluate.EvaluateContext = {
-		flagValue = value,
+		flagName = flagName,
+		flagValue = flagValue,
 		references = references,
-		rewriter = Rewriter.new(references),
 	}
 
-	local parseResult = parser.parseExpr(source)
+	local parseResult = parser.parseMutableExpr(source)
 	references:_visitExpressionForTesting(parseResult)
 	return evaluate(parseResult, context)
 end

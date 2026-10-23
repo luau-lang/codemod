@@ -16,7 +16,7 @@ local function outputMatch(output: findVariablesUtils.variableStore, expectedOut
 	local passedCases = 0
 	for var, numUses in output do
 		local varName = var.name.text :: string
-		local varDeclarationLine = var.name.location.beginLine
+		local varDeclarationLine = var.name.location.beginLine -- previously lines we're 0indexed, now they're 1indexed
 		print("Var Declaration Line", varDeclarationLine)
 		local outputMatchKey = varName .. "_" .. tostring(varDeclarationLine)
 		assert(numUses == expectedOutput[outputMatchKey])

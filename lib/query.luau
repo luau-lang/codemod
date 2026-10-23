@@ -3,7 +3,7 @@ local syntax = require("@std/syntax")
 local visitor = require("@std/syntax/visitor")
 
 --- Selects a list of expressions from the provided block that match the provided predicate.
---- Useful for defining declarative-based programs, where the matched nodes are used to build a replacements map
+--- Useful for defining declarative-based programs, where the matched nodes are mutated for the migration
 local function selectExpression<T>(block: syntax.CstStatBlock, predicate: (syntax.CstExpr) -> T?): { T }
 	local nodes = {}
 	local finder = visitor.create()

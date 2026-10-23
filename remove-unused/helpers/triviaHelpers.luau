@@ -1,35 +1,12 @@
-local syntax = require("@std/syntax")
-local types = require("@std/syntax/types")
+local cst = require("@lute/syntax/mutablecst")
 local visitor = require("@std/syntax/visitor")
-
---[[
-	Pending edits to a single token. The CST is immutable, so instead of mutating trivia in place we
-	accumulate edits per token and render each edited token into a replacement once a block is processed.
-]]
-export type TokenEdit = {
-	prefix: string?,
-	leadingTrivia: { syntax.Trivia }?,
-	text: string?,
-	trailingTrivia: { syntax.Trivia }?,
-	suffix: string?,
-}
-
-export type TokenEdits = { [syntax.CstToken]: TokenEdit }
-
-local function printTrivia(trivia: { syntax.Trivia }): string
-	local parts = {}
-	for _, t in trivia do
-		table.insert(parts, t.text)
-	end
-	return table.concat(parts)
-end
 
 --[[
     If the trivia only contains whitespace or newlines,
     it's considered non-essential and is filtered out.
 ]]
-local function filterTrailingTrivia(trivia: { syntax.Trivia }): { syntax.Trivia }
-	for _, t in trivia do
+local function filterTrailingTrivia(trivia)
+	for _, t in pairs(trivia) do
 		if t.tag == "comment" or t.tag == "blockcomment" then
 			return trivia
 		end
@@ -37,90 +14,158 @@ local function filterTrailingTrivia(trivia: { syntax.Trivia }): { syntax.Trivia 
 	return {}
 end
 
-local function getFirstAndLastToken(node: syntax.CstNode): (syntax.CstToken, syntax.CstToken)
-	local firstToken: syntax.CstToken? = nil
-	local lastToken: syntax.CstToken? = nil
+--[[
+    Returns the token holding the trivia of a constant expression (nil, boolean, number or string),
+    or nil for any other expression.
+]]
+local function getConstantToken(expression: cst.CstExpr): cst.CstToken?
+	if expression.tag == "string" then
+		return expression.value
+	elseif
+		expression.tag == "nil"
+		or expression.tag == "boolean"
+		or expression.tag == "number"
+		or expression.tag == "integer"
+	then
+		return expression.token
+	end
+	return nil
+end
+
+local function getStatementFirstAndLastToken(statement: cst.CstStat)
+	local firstToken: cst.CstToken? = nil
+	local lastToken: cst.CstToken? = nil
 	local tokenFinder = visitor.create()
-	tokenFinder.visitToken = function(token: syntax.CstToken)
+	tokenFinder.visitToken = function(token: cst.CstToken)
 		if not firstToken then
 			firstToken = token
 		end
 		lastToken = token
 		return false
 	end
-	visitor.visit(node, tokenFinder)
+	visitor.visitStatement(statement, tokenFinder)
 	assert(firstToken ~= nil and lastToken ~= nil)
 	return firstToken, lastToken
 end
 
-local function getEdit(edits: TokenEdits, token: syntax.CstToken): TokenEdit
-	local edit = edits[token]
-	if edit then
-		return edit
-	end
-	local newEdit: TokenEdit = {}
-	edits[token] = newEdit
-	return newEdit
+local function getStatementTrivia(statement: cst.CstStat)
+	local firstToken, lastToken = getStatementFirstAndLastToken(statement)
+	return firstToken.leadingTrivia, lastToken.trailingTrivia
 end
 
--- Normalize whitespace but preserve comments exactly
-local function printNormalizedTrivia(toAttach: { { syntax.Trivia } }): string
-	local parts = {}
-	for _, trivia in toAttach do
-		for _, t in trivia do
-			table.insert(parts, if t.tag == "whitespace" then (t.text:gsub("[ \t]+", "")) else t.text)
+local function attachTriviaInOrder(attachTo, toAttach: { cst.Trivia })
+	while #toAttach > 0 do
+		local trivia = table.remove(toAttach, 1)
+		for _, token in pairs(trivia) do
+			-- Normalize whitespace but preserve comments exactly
+			token.text = if token.tag == "whitespace" then token.text:gsub("[ \t]+", "") else token.text
+			table.insert(attachTo, token)
 		end
 	end
-	return table.concat(parts)
 end
 
 --[[
-    Inserts trivia extracted from removed statements before the leading trivia of the given token.
+    Inserts trivia at the beginning of a node's leading trivia.
+    
+    This function takes trivia extracted from removed statements and
+    prepends it to the target node's existing leading trivia.
     Whitespace is normalized to avoid formatting issues.
+    
+    @param attachTo - The AST node to attach trivia to
+    @param toInsert - The trivia to insert
+    @return - The combined trivia
 ]]
-local function insertLeadingTrivia(edits: TokenEdits, token: syntax.CstToken, toInsert: { { syntax.Trivia } })
-	local edit = getEdit(edits, token)
-	edit.prefix = printNormalizedTrivia(toInsert) .. (edit.prefix or "")
-	table.clear(toInsert)
+local function insertLeadingTrivia(attachTo: cst.CstToken, toInsert: { { cst.Trivia } })
+	local newTrivia = {}
+
+	-- Process each trivia node to insert
+	attachTriviaInOrder(newTrivia, toInsert)
+
+	-- Append the node's existing leading trivia
+	for _, trivia in attachTo do
+		table.insert(newTrivia, trivia)
+	end
+
+	return newTrivia
 end
 
 --[[
-    Appends trivia extracted from removed statements after the trailing trivia of the given token.
+    @param statement - The AST statement to attach trivia to
+    @param triviaToInsert - The trivia to insert
 ]]
-local function appendTrailingTrivia(edits: TokenEdits, token: syntax.CstToken, toAppend: { { syntax.Trivia } })
-	local edit = getEdit(edits, token)
-	edit.suffix = (edit.suffix or "") .. printNormalizedTrivia(toAppend)
-	table.clear(toAppend)
+local function handleLeadingTriviaInsertion(statement: cst.CstStat, triviaToInsert: { { cst.Trivia } })
+	local leadingToken, _ = getStatementFirstAndLastToken(statement)
+	leadingToken.leadingTrivia = insertLeadingTrivia(leadingToken.leadingTrivia, triviaToInsert)
+end
+
+--[[    
+    @param statement - The AST statement to extract trailing trivia from
+	@param toInsert -  trivia to append to the found trailing triva
+    @return - The trailing trivia of the statement
+]]
+local function appendTrailingTrivia(statement: cst.CstStat, toAppend: { cst.Trivia })
+	local _, trailingToken = getStatementFirstAndLastToken(statement)
+
+	attachTriviaInOrder(trailingToken.trailingTrivia, toAppend)
 end
 
 --[[
-    @param statement - The statement being removed
+    @param statement - The AST statement to extract trivia from
     @param triviaDeposit - The table where extracted trivia will be stored
 ]]
-local function storeStatementTrivia(statement: syntax.CstStat, triviaDeposit: { { syntax.Trivia } })
-	local firstToken, lastToken = getFirstAndLastToken(statement)
-	table.insert(triviaDeposit, firstToken.leadingTrivia)
-	table.insert(triviaDeposit, filterTrailingTrivia(lastToken.trailingTrivia))
+local function storeStatementTrivia(statement: cst.CstStat, triviaDeposit: { { cst.Trivia } })
+	local statementLeadingTrivia, statementTrailingTrivia = getStatementTrivia(statement)
+
+	table.insert(triviaDeposit, statementLeadingTrivia)
+	table.insert(triviaDeposit, filterTrailingTrivia(statementTrailingTrivia))
 end
 
-local function applyTokenEdits(edits: TokenEdits, replacements: types.Replacements)
-	for token, edit in edits do
-		replacements[token] = {
-			content = (edit.prefix or "")
-				.. printTrivia(edit.leadingTrivia or token.leadingTrivia)
-				.. (edit.text or token.text)
-				.. printTrivia(edit.trailingTrivia or token.trailingTrivia)
-				.. (edit.suffix or ""),
-			preserveTrivia = false,
-		}
+--[[
+	This function handles trivia reassignment of a filter variable statement (declaration, initialization, or assignment)
+
+	It ensures the final variables and final value do not have a separator (comma, etc), are properly spaced, and preserve the original trailing trivia of the full statement.
+	
+	@param varsToKeep - The filtered AST variable nodes that are not being removed
+	@param valsToKeep - The filtered AST value nodes that are not being removed
+	@param statementTrailingTrivia - the trailing trivia of the original statement
+]]
+local function handleVariableStatementTrivia(
+	varsToKeep: cst.CstPunctuated<cst.CstLocal>,
+	valsToKeep: cst.CstPunctuated<cst.CstExpr>,
+	statementTrailingTrivia: { cst.Trivia }
+)
+	-- Note: this function is only useful if we remove the original last variable in the statement, otherwise it's trivia will already be correct
+	local hasValues = #valsToKeep > 0
+	if varsToKeep.separators[#varsToKeep] then
+		if hasValues then
+			varsToKeep.separators[#varsToKeep].text = ""
+		else
+			varsToKeep.separators[#varsToKeep] = nil
+			varsToKeep[#varsToKeep].name.trailingTrivia = statementTrailingTrivia
+		end
 	end
+	if hasValues then
+		valsToKeep.separators[#valsToKeep] = nil
+		local constantToken = getConstantToken(valsToKeep[#valsToKeep])
+		if constantToken then
+			constantToken.trailingTrivia = statementTrailingTrivia
+		end
+	end
+end
+
+local function handleLeftoverTrivia(triviaToAppend: { { cst.Trivia } }, lastKeptStatement: cst.CstStat)
+	if #triviaToAppend == 0 or not lastKeptStatement then
+		return
+	end
+
+	-- append trivia in triviaToAppend to lastKeptStatement's trailingTrivia
+	appendTrailingTrivia(lastKeptStatement, triviaToAppend)
 end
 
 return {
-	getEdit = getEdit,
-	getFirstAndLastToken = getFirstAndLastToken,
+	getConstantToken = getConstantToken,
 	storeStatementTrivia = storeStatementTrivia,
-	insertLeadingTrivia = insertLeadingTrivia,
-	appendTrailingTrivia = appendTrailingTrivia,
-	applyTokenEdits = applyTokenEdits,
+	handleLeadingTriviaInsertion = handleLeadingTriviaInsertion,
+	handleVariableStatementTrivia = handleVariableStatementTrivia,
+	handleLeftoverTrivia = handleLeftoverTrivia,
 }

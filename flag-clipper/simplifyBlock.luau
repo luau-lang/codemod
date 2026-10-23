@@ -1,50 +1,61 @@
-local syntax = require("@std/syntax")
+local cst = require("@lute/syntax/mutablecst")
 local visitor = require("@std/syntax/visitor")
 
+local createConstantBoolean = require("./createConstantBoolean")
 local evaluate = require("./evaluate")
 local simplifyConditional = require("./simplifyConditional")
+local trivia = require("./trivia")
+
+--- Simplify expressions that directly reference the flag (or its inverse)
+local function simplifyConstantExpression(ctx: evaluate.EvaluateContext, expression: cst.CstExpr): cst.CstExpr?
+	local constantEvaluation = evaluate(expression, ctx)
+	if constantEvaluation ~= nil then
+		return createConstantBoolean(
+			constantEvaluation,
+			trivia.getLeadingTrivia(expression),
+			trivia.getTrailingTrivia(expression),
+			expression.location
+		)
+	end
+
+	return nil
+end
 
 --- Checks to see if the provided expression has a reference to the provided local.
 --- e.g., for the local `value`, and the expression `call(value)`, return true.
-local function expressionReferencesLocal(
-	expression: syntax.CstExpr,
-	loc: syntax.CstLocal,
-	ctx: evaluate.EvaluateContext
-): boolean
+local function expressionReferencesLocal(expression: cst.CstExpr, loc: cst.CstLocal)
 	local isReferencingLocal = false
 
 	local referenceVisitor = visitor.create()
-	referenceVisitor.visitExprLocal = function(reference: syntax.CstExprLocal)
+	referenceVisitor.visitExprLocal = function(reference: cst.CstExprLocal)
 		if loc == reference["local"] then
 			isReferencingLocal = true
 			return false
 		end
 		return true
 	end
-	ctx.rewriter:visit(expression, referenceVisitor)
+	visitor.visitExpression(expression, referenceVisitor)
 
 	return isReferencingLocal
 end
 
---- Simplify expressions that directly reference the flag (or its inverse) to a boolean literal
-local function simplifyPunctuated(expressions: syntax.CstPunctuated<syntax.CstExpr>, ctx: evaluate.EvaluateContext)
-	for _, expression in expressions do
-		local constantEvaluation = evaluate(expression, ctx)
-		if constantEvaluation ~= nil then
-			ctx.rewriter:setConstant(expression, constantEvaluation)
+-- Simplifies values in locals or assigns.
+local function simplifyPunctuated(statement: cst.CstStatLocal | cst.CstStatAssign, ctx: evaluate.EvaluateContext)
+	for i, expression in statement.values do
+		local simplified = simplifyConstantExpression(ctx, expression)
+		if simplified then
+			statement.values[i] = simplified
 		end
 	end
 end
 
---- Simplifies the statements of a block, returning the statements that are kept
-local function simplifyBlock(block: syntax.CstStatBlock, ctx: evaluate.EvaluateContext): { syntax.CstStat }
-	local rewriter = ctx.rewriter
-	local statements: { syntax.CstStat } = {}
+local function simplifyBlock(block: cst.CstStatBlock, ctx: evaluate.EvaluateContext): cst.CstStatBlock
+	local statements = {}
 
-	for _, statement in rewriter:statements(block) do
+	for _, statement in block.statements do
 		if statement.tag == "expression" then
 			-- Skip (i.e. delete) any top level flag access calls (game:DefineFastFlag / game:GetFastFlag)
-			if rewriter:isReference(statement.expression) then
+			if ctx.references:isReference(statement.expression) then
 				continue
 			end
 			table.insert(statements, statement)
@@ -62,7 +73,7 @@ local function simplifyBlock(block: syntax.CstStatBlock, ctx: evaluate.EvaluateC
 				continue
 			end
 
-			simplifyPunctuated(statement.values, ctx)
+			simplifyPunctuated(statement, ctx)
 
 			table.insert(statements, statement)
 		elseif statement.tag == "localfunction" then
@@ -74,10 +85,9 @@ local function simplifyBlock(block: syntax.CstStatBlock, ctx: evaluate.EvaluateC
 			table.insert(statements, statement)
 		elseif statement.tag == "function" then
 			-- Skip (i.e. delete) if local function is marked for deletion
-			local name = statement.name
-			if name.tag == "local" and ctx.references:isLocalReference(name["local"]) then
+			if statement.name.tag == "local" and ctx.references:isLocalReference(statement.name["local"]) then
 				continue
-			elseif name.tag == "global" and ctx.references:isGlobalReference(name.name.text) then
+			elseif statement.name.tag == "global" and ctx.references:isGlobalReference(statement.name.name.text) then
 				continue
 			end
 
@@ -86,7 +96,7 @@ local function simplifyBlock(block: syntax.CstStatBlock, ctx: evaluate.EvaluateC
 			-- Skip (i.e. delete) if any assignment target is a flag reference
 			local shouldDelete = false
 			for _, variable in statement.variables do
-				if rewriter:isReference(variable) then
+				if ctx.references:isReference(variable) then
 					shouldDelete = true
 					break
 				end
@@ -96,11 +106,16 @@ local function simplifyBlock(block: syntax.CstStatBlock, ctx: evaluate.EvaluateC
 				continue
 			end
 
-			simplifyPunctuated(statement.values, ctx)
+			simplifyPunctuated(statement, ctx)
 
 			table.insert(statements, statement)
 		elseif statement.tag == "return" then
-			simplifyPunctuated(statement.expressions, ctx)
+			for i, expression in statement.expressions do
+				local simplified = simplifyConstantExpression(ctx, expression)
+				if simplified then
+					statement.expressions[i] = simplified
+				end
+			end
 
 			table.insert(statements, statement)
 		elseif statement.tag == "conditional" then
@@ -108,11 +123,11 @@ local function simplifyBlock(block: syntax.CstStatBlock, ctx: evaluate.EvaluateC
 			if simplified == nil then
 				-- Conditional is removed
 				continue
-			elseif simplified.kind == "stat" and simplified.tag == "conditional" then
+			elseif simplified.tag == "conditional" then
 				table.insert(statements, simplified)
-			elseif simplified.kind == "stat" and simplified.tag == "block" then
+			elseif simplified.tag == "block" then
 				-- If processed down to a block, flatten with the main block
-				for i, otherStatement in rewriter:statements(simplified) do
+				for i, otherStatement in simplified.statements do
 					-- Simplify 'local x = value; x = ...' after the block was removed
 					if
 						i == 1
@@ -121,21 +136,18 @@ local function simplifyBlock(block: syntax.CstStatBlock, ctx: evaluate.EvaluateC
 						and #otherStatement.variables == 1
 						and #otherStatement.values == 1
 					then
-						local assigningTo = rewriter:view(otherStatement.variables[1])
+						local assigningTo = otherStatement.variables[1]
 						local previousStatement = statements[#statements]
 						if
-							assigningTo
-							and assigningTo.tag == "local"
+							assigningTo.tag == "local"
 							and previousStatement.tag == "local"
 							and #previousStatement.variables == 1
 							and previousStatement.variables[1] == assigningTo["local"]
-							and not expressionReferencesLocal(otherStatement.values[1], assigningTo["local"], ctx)
+							and not expressionReferencesLocal(otherStatement.values[1], assigningTo["local"])
 						then
-							rewriter:setLocalMerge(previousStatement, {
-								nameTrailingTrivia = assigningTo.token.trailingTrivia,
-								equals = otherStatement.equals,
-								values = otherStatement.values,
-							})
+							previousStatement.variables[1].name.trailingTrivia = assigningTo.token.trailingTrivia
+							previousStatement.equals = otherStatement.equals
+							previousStatement.values = otherStatement.values
 							continue
 						end
 					end
@@ -143,13 +155,12 @@ local function simplifyBlock(block: syntax.CstStatBlock, ctx: evaluate.EvaluateC
 					table.insert(statements, otherStatement)
 				end
 				-- if statements from simplified conditional terminate the outer block, return early & don't add subsequent statements
-				local lastStatement = statements[#statements]
-				if lastStatement and (lastStatement.tag == "return" or lastStatement.tag == "break") then
+				if statements[#statements].tag == "return" or statements[#statements].tag == "break" then
 					break
 				end
 			else
 				error(
-					`simplifyConditional should only return a conditional statement or block of statements, but got {simplified.tag}`
+					`simplifyIf should only return a conditional statement or block of statements, but got {simplified.tag}`
 				)
 			end
 		else
@@ -157,9 +168,10 @@ local function simplifyBlock(block: syntax.CstStatBlock, ctx: evaluate.EvaluateC
 		end
 	end
 
-	rewriter:setStatements(block, statements)
-
-	return statements
+	return {
+		tag = "block",
+		statements = statements,
+	}
 end
 
 return simplifyBlock

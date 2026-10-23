@@ -1,229 +1,160 @@
-local syntax = require("@std/syntax")
-local types = require("@std/syntax/types")
+local cst = require("@lute/syntax/mutablecst")
 local findVariablesUtils = require("./findVariablesUtils")
 local visitor = require("@std/syntax/visitor")
-local printer = require("@std/syntax/printer")
 local triviaHelpers = require("./helpers/triviaHelpers")
+local handleLeadingTriviaInsertion = triviaHelpers.handleLeadingTriviaInsertion
+local storeStatementTrivia = triviaHelpers.storeStatementTrivia
+local handleVariableStatementTrivia = triviaHelpers.handleVariableStatementTrivia
+local handleLeftoverTrivia = triviaHelpers.handleLeftoverTrivia
+local getConstantToken = triviaHelpers.getConstantToken
 
 type deletionStore = findVariablesUtils.deletionStore
-type TokenEdits = triviaHelpers.TokenEdits
-
-type VariableStatement = syntax.CstStatLocal | syntax.CstStatAssign
 
 --[[
-	The variables and values of a variable statement that survive deletion, by their index in the original statement.
+	Variable used to track edge cases where variable removal is prone to break logic.
+	i.e. local x, y = functionThatReturnsTwoValues()
+	If x or y is unused and we remove one of them, code will break
 ]]
-type FilteredStatement = {
-	statement: VariableStatement,
-	varIndices: { number },
-	valIndices: { number },
-}
+local removalExceptions = 0
 
 --[[
 	Determines if we should keep all variables in a given statement. True if:
 	- We are keeping the same number of variables as the statement originally had (we are not removing anything)
 	- We have removed variables from a statement where multiple variables are assigned to a single function call. This will break code
-	  i.e. local x, y = functionThatReturnsTwoValues()
-	  Unused variables in such a statement are counted as removal exceptions.
-
+	
+	@param varsToKeep - The filtered variables
+	@param valsToKeep - The filtered vaues
+	@param varStatement - The original statement
+	@param hasValues - True if the original statement had values (was initialization or assignment)
 	@return true if we are keeping the statement as it originally was, false otherwise
-	@return the number of removal exceptions
 ]]
-local function keepAllVariables(numVarsToKeep: number, varStatement: VariableStatement): (boolean, number)
-	if numVarsToKeep == #varStatement.variables then
-		return true, 0
+local function keepAllVariables(
+	varsToKeep: cst.CstPunctuated<cst.CstLocal>,
+	valsToKeep: cst.CstPunctuated<cst.CstExpr>,
+	varStatement,
+	hasValues
+): boolean
+	if #varsToKeep == #varStatement.variables then
+		return true
 	end
 
-	if numVarsToKeep > 0 and varStatement.equals ~= nil and #varStatement.values < #varStatement.variables then
-		return true, #varStatement.variables - numVarsToKeep
+	if
+		#varsToKeep > 0
+		and #varsToKeep < #varStatement.variables
+		and hasValues
+		and #varStatement.values < #varStatement.variables
+	then
+		-- don't support deleting from statements where we assign multiple vars via a function call (unless all vars are unused)
+		-- unused variables in such a statement are considered removal exceptions
+		removalExceptions += #varStatement.variables - #varsToKeep
+		return true
 	end
 
-	return false, 0
+	return false
 end
 
 --[[
-	Filters a statement with variables based on our deletions store.
+	Function that filters a statement with variables based on our deletions store.
+	
+	All variable declarations, initializations, or assignments have a statement node with a `variables` and `values` property,
+	so reassigning these effectively filters and transforms the statement.
 
-	@return the kept variables and values, or nil if the statement is kept as is
-	@return the number of removal exceptions
+	@param varStatement - The statement to filter
+	@param deletions - Our deletions store, used to determine if a variable is deleted (variable AST nodes key into deletions)
+	@param isAssign - If the statement is an assignment (i.e. a, b = 1, 2); indicates a different AST node structure
+	@param hasValues - If the statement has values (we can declare variables without initializaing a value)
+	@return `newVars` table containing the variable nodes to be kept 
+	@return `newVals` table containing the corresponding value nodes of `newVars`
 ]]
 local function filterVariablesAndValues(
-	varStatement: VariableStatement,
-	deletions: deletionStore
-): (FilteredStatement?, number)
-	local isAssign = varStatement.tag == "assign"
-	local hasValues = varStatement.equals ~= nil
-	local varIndices, valIndices = {}, {}
+	varStatement: cst.CstStatLocal | cst.CstStatAssign,
+	deletions: deletionStore,
+	isAssign: boolean,
+	hasValues: boolean?
+)
+	local varsToKeep = setmetatable({ separators = {} }, getmetatable(varStatement.variables))
+	local valsToKeep = setmetatable({ separators = {} }, getmetatable(varStatement.values))
+	local statementTrailingTrivia = if hasValues
+		then (getConstantToken(varStatement.values[#varStatement.values]) or {}).trailingTrivia
+		else varStatement.variables[#varStatement.variables].name.trailingTrivia
 
-	for i, variable in varStatement.variables do
-		local deletionsKey = if isAssign then (if variable.tag == "local" then variable["local"] else nil) else variable
-		if not deletionsKey or not deletions[deletionsKey] then -- keep the variable and the value it is assigned
-			table.insert(varIndices, i)
-			if hasValues and varStatement.values[i] then
-				table.insert(valIndices, i)
+	for i = 1, #varStatement.variables do
+		local deletionsKey = if isAssign then varStatement.variables[i]["local"] else varStatement.variables[i]
+		if not deletions[deletionsKey] then -- keep the variable and the value it is assigned
+			table.insert(varsToKeep, varStatement.variables[i])
+			varsToKeep.separators[#varsToKeep] = varStatement.variables.separators[i]
+			if hasValues then
+				table.insert(valsToKeep, varStatement.values[i])
+				valsToKeep.separators[#valsToKeep] = varStatement.values.separators[i]
 			end
 		end
 	end
 
-	local keepAll, exceptions = keepAllVariables(#varIndices, varStatement)
-	if keepAll then
-		return nil, exceptions
+	if keepAllVariables(varsToKeep, valsToKeep, varStatement, hasValues) then
+		return varStatement.variables, varStatement.values
 	end
 
-	return { statement = varStatement, varIndices = varIndices, valIndices = valIndices }, 0
+	if #varsToKeep > 0 then
+		handleVariableStatementTrivia(varsToKeep, valsToKeep, statementTrailingTrivia)
+	end
+
+	return varsToKeep, valsToKeep
 end
 
-local function statementFirstToken(filtered: FilteredStatement): syntax.CstToken
-	local statement = filtered.statement
-	if statement.tag == "local" then
-		return statement.localKeyword
-	end
-	return (triviaHelpers.getFirstAndLastToken(statement.variables[filtered.varIndices[1]]))
+local function handleVariableStatement(
+	varStatement: cst.CstStatLocal | cst.CstStatAssign,
+	deletions: deletionStore,
+	isAssign: boolean
+)
+	local varsToKeep, valsToKeep = filterVariablesAndValues(varStatement, deletions, isAssign, varStatement.equals)
+	return varsToKeep, valsToKeep
 end
 
-local function statementLastToken(filtered: FilteredStatement): syntax.CstToken
-	local statement = filtered.statement
-	local lastNode: syntax.CstNode = if statement.equals
-		then statement.values[filtered.valIndices[#filtered.valIndices]]
-		else statement.variables[filtered.varIndices[#filtered.varIndices]]
-	local _, lastToken = triviaHelpers.getFirstAndLastToken(lastNode)
-	return lastToken
-end
-
---[[
-	Ensures the filtered statement keeps the leading trivia of the original statement and that the final variable and
-	value do not have a separator (comma, etc) while preserving the original trailing trivia of the full statement.
-]]
-local function editVariableStatementTrivia(filtered: FilteredStatement, edits: TokenEdits)
-	local statement = filtered.statement
-	local originalFirst, originalLast = triviaHelpers.getFirstAndLastToken(statement)
-
-	local firstToken = statementFirstToken(filtered)
-	if firstToken ~= originalFirst then
-		triviaHelpers.getEdit(edits, firstToken).leadingTrivia = originalFirst.leadingTrivia
-	end
-
-	local lastVarIndex = filtered.varIndices[#filtered.varIndices]
-	local lastVarSeparator = statement.variables.separators[lastVarIndex]
-	if lastVarSeparator then
-		if statement.equals then
-			-- keep the separator's trivia so the spacing before `=` is preserved
-			triviaHelpers.getEdit(edits, lastVarSeparator).text = ""
-		else
-			local _, lastVarToken = triviaHelpers.getFirstAndLastToken(statement.variables[lastVarIndex])
-			triviaHelpers.getEdit(edits, lastVarToken).trailingTrivia = originalLast.trailingTrivia
-		end
-	end
-
-	if statement.equals and #filtered.valIndices > 0 then
-		local lastToken = statementLastToken(filtered)
-		if lastToken ~= originalLast then
-			triviaHelpers.getEdit(edits, lastToken).trailingTrivia = originalLast.trailingTrivia
-		end
-	end
-end
-
-local function printFilteredStatement(filtered: FilteredStatement, replacements: types.Replacements): string
-	local statement = filtered.statement
-	local parts = {}
-	local function print(node: syntax.CstNode)
-		table.insert(parts, printer.printNode(node, replacements))
-	end
-
-	if statement.tag == "local" then
-		print(statement.localKeyword)
-	end
-	for i, index in filtered.varIndices do
-		print(statement.variables[index])
-		local separator = statement.variables.separators[index]
-		if separator and (i < #filtered.varIndices or statement.equals) then
-			print(separator)
-		end
-	end
-	if statement.equals then
-		print(statement.equals)
-		for i, index in filtered.valIndices do
-			print(statement.values[index])
-			local separator = statement.values.separators[index]
-			if separator and i < #filtered.valIndices then
-				print(separator)
-			end
-		end
-	end
-
-	return table.concat(parts)
-end
-
---[[
-	Computes the replacements that delete the given variables from the tree rooted at `block`.
-
-	@return replacements to print the tree with
-	@return the number of deletions that were not applied because removing them is unsafe
-]]
-local function deleteVariables(block: syntax.CstStatBlock, deletions: deletionStore): (types.Replacements, number)
-	local removalExceptions = 0
-	local replacements: types.Replacements = {}
-	local edits: TokenEdits = {}
+local function deleteVariables(block: cst.CstStatBlock, deletions: deletionStore)
+	removalExceptions = 0
 	local removalsVisitor = visitor.create()
 
-	removalsVisitor.visitStatBlockEnd = function(block: syntax.CstStatBlock)
-		local removedTrivia = {} -- store trivia of removed statements so we can preserve it
-		local filteredStatements: { FilteredStatement } = {}
+	removalsVisitor.visitStatBlockEnd = function(block: cst.CstStatBlock)
+		local filteredStatements = {}
 
-		-- store most recently kept statement; if we have leftover removedTrivia after full block traversal, we can append to this statement
-		local priorKeptLastToken: syntax.CstToken? = nil
+		local removedTrivia = {} -- store trivia of removed statements so we can preserve it
+
+		local priorKeptStatement = nil -- store most recently kept statement; if we have leftover removedTrivia after full block traversal, we can append to this statement
 
 		for _, statement in block.statements do
-			local filtered: FilteredStatement? = nil
-
-			-- function removal is straightforward, we just omit the entire statement
+			-- function removal is straightforward, we just omit the entire statement from filteredStatements
 			if statement.tag == "localfunction" or statement.tag == "function" then
 				if deletions[statement.name] then
-					triviaHelpers.storeStatementTrivia(statement, removedTrivia)
-					replacements[statement] = { content = "", preserveTrivia = false }
+					storeStatementTrivia(statement, removedTrivia)
 					continue
 				end
 			elseif statement.tag == "local" or statement.tag == "assign" then
-				local exceptions
-				filtered, exceptions = filterVariablesAndValues(statement, deletions)
-				removalExceptions += exceptions
-				if filtered and #filtered.varIndices == 0 then -- if deleting all vars
-					triviaHelpers.storeStatementTrivia(statement, removedTrivia)
-					replacements[statement] = { content = "", preserveTrivia = false }
+				local newVars, newVals
+				-- get filtered statement variables and values
+				newVars, newVals = handleVariableStatement(statement, deletions, statement.tag == "assign")
+				if #newVars == 0 then -- if deleting all vars
+					storeStatementTrivia(statement, removedTrivia)
 					continue
 				end
+				statement.variables = newVars
+				statement.values = newVals
 			end
-
-			local firstToken, lastToken
-			if filtered then
-				editVariableStatementTrivia(filtered, edits)
-				table.insert(filteredStatements, filtered)
-				firstToken, lastToken = statementFirstToken(filtered), statementLastToken(filtered)
-			else
-				firstToken, lastToken = triviaHelpers.getFirstAndLastToken(statement)
-			end
-
 			if #removedTrivia > 0 then
 				-- insert the leading trivia from previously removed statements to statement we are keeping
-				triviaHelpers.insertLeadingTrivia(edits, firstToken, removedTrivia)
+				handleLeadingTriviaInsertion(statement, removedTrivia)
 			end
-			priorKeptLastToken = lastToken
+			priorKeptStatement = statement
+			table.insert(filteredStatements, statement)
 		end
 
-		if #removedTrivia > 0 and priorKeptLastToken then
-			triviaHelpers.appendTrailingTrivia(edits, priorKeptLastToken, removedTrivia)
-		end
+		handleLeftoverTrivia(removedTrivia, priorKeptStatement)
 
-		triviaHelpers.applyTokenEdits(edits, replacements)
-		for _, filtered in filteredStatements do
-			replacements[filtered.statement] =
-				{ content = printFilteredStatement(filtered, replacements), preserveTrivia = false }
-		end
+		block.statements = filteredStatements
 	end
 
 	visitor.visitBlock(block, removalsVisitor)
 
-	return replacements, removalExceptions
+	return block, removalExceptions
 end
 
 return deleteVariables

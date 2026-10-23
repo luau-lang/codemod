@@ -43,6 +43,15 @@ type TrackReferencesData = {
 	--- This could be a local reference, or a require module
 	_expressions: { [syntax.CstExpr]: boolean },
 
+	-- Cache for simplified binary expressions explicitly to avoid
+	-- removing table entries that have had their values simplified to a direct flag reference
+	-- for ex, suppose flag is true and we have: local table = { field = flag and something }
+	-- expressions simplify from inside out (post-order)
+	-- so we get to simplifying the table itself, we have: { field = flag }
+	-- normally, these are removed but bc value was originally `flag and something` we want to keep entry
+	-- so, we use this cache to catch such cases
+	_simplifiedBinaries: { [syntax.CstExpr]: true },
+
 	--- A set of global function names that are known to correspond to a flag access
 	--- Unlike flagLocalsSet, we do not track this via AstLocal reference, but just by the function name
 	_globalNames: { [string]: true },
@@ -80,6 +89,7 @@ function TrackReferences.new(
 	self._globalNames = {}
 	self._localTableData = {}
 	self._expressionTableData = {}
+	self._simplifiedBinaries = {}
 	self._visitor = visitor.create()
 
 	self._visitor.visitExpr = function(node: syntax.CstExpr)

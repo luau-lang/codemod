@@ -1,18 +1,18 @@
-local syntax = require("@std/syntax")
+local cst = require("@lute/syntax/mutablecst")
 
 local visitor = require("@std/syntax/visitor")
 local printTable = require("./helpers/testHelpers").printTable
 
 export type scope = {
-	[string]: syntax.CstNode,
+	[string]: cst.CstExpr,
 }
 
 export type variableStore = {
-	[syntax.CstNode]: number,
+	[cst.CstExpr]: number,
 }
 
 export type deletionStore = {
-	[syntax.CstNode]: boolean,
+	[cst.CstExpr]: boolean,
 }
 
 --[[
@@ -21,7 +21,7 @@ export type deletionStore = {
 ]]
 export type globalStore = {
 	[string]: {
-		ref: syntax.CstNode?,
+		ref: cst.CstExpr?,
 		beforeInitCnt: number,
 	},
 }
@@ -42,15 +42,17 @@ end
 	@param scopeStack - Scope stack used to keep track of current scope; declared variables are added to the current scope
 ]]
 local function handleVarDeclaration(
-	declaredVars: syntax.CstPunctuated<syntax.CstLocal>,
+	declaredVars: cst.CstPunctuated<cst.CstLocal>,
 	variables: variableStore,
 	scopeStack: { scope }
 )
 	if declaredVars then
 		for _, v in declaredVars do
-			if not excludeVarName(v.name.text) then
-				variables[v] = 0 -- Initialize usage count to 0
-				scopeStack[#scopeStack][v.name.text] = v -- Add to current scope
+			if v then
+				if not excludeVarName(v.name.text) then
+					variables[v] = 0 -- Initialize usage count to 0
+					scopeStack[#scopeStack][v.name.text] = v -- Add to current scope
+				end
 			end
 		end
 	end
@@ -64,15 +66,13 @@ end
 	@param assignedVals - Array of value nodes being assigned
 	@param variables - Store tracking variable usage counts
 ]]
-local function handleAssign(
-	assignedVars: syntax.CstPunctuated<syntax.CstExpr>,
-	assignedVals: syntax.CstPunctuated<syntax.CstExpr>,
-	variables: variableStore
-)
+local function handleAssign(assignedVars, assignedVals, variables: variableStore)
 	if assignedVars then
 		for _, v in assignedVars do
-			if v.tag == "local" and variables[v["local"]] then
-				variables[v["local"]] -= 1
+			if v then
+				if variables[v["local"]] then
+					variables[v["local"]] -= 1
+				end
 			end
 		end
 	end
@@ -84,7 +84,7 @@ end
 	@param node - The AST node representing the variable reference
 	@param variables - Store tracking variable usage counts
 ]]
-local function handleVarReference(node: syntax.CstExprLocal, variables: variableStore)
+local function handleVarReference(node: cst.CstExprLocal, variables: variableStore)
 	-- Local references store the original variable declaration in the 'local' field
 	-- This allows us to match the reference with its declaration
 	if variables[node["local"]] then
@@ -124,7 +124,7 @@ end
 	@return deletions - Table of variable nodes marked for deletion (usage count = 0)
 	@return numDeletions - Count of variables marked for deletion
 ]]
-local function findVariables(block: syntax.CstStatBlock)
+local function findVariables(block: cst.CstStatBlock)
 	local deletions: deletionStore = {}
 	local globals: globalStore = {} -- Stores global function references and call counts before definition
 	local variables: variableStore = {} -- Stores varReference : useCount for use in deletion
@@ -133,15 +133,14 @@ local function findVariables(block: syntax.CstStatBlock)
 	local getVarsVisitor = visitor.create()
 
 	getVarsVisitor.visitStatBlock = function(block)
-		local frame: scope = {}
-		table.insert(scopeStack, frame) -- Push new scope frame to stack
+		table.insert(scopeStack, {}) -- Push new scope frame to stack
 		return true
 	end
 	getVarsVisitor.visitStatBlockEnd = function(block)
 		table.remove(scopeStack, #scopeStack) -- Pop current scope from stack
 	end
 
-	getVarsVisitor.visitStatLocalDeclaration = function(statement: syntax.CstStatLocal)
+	getVarsVisitor.visitStatLocalDeclaration = function(statement: cst.CstStatLocal)
 		handleVarDeclaration(statement.variables, variables, scopeStack)
 		return true
 	end
@@ -151,7 +150,7 @@ local function findVariables(block: syntax.CstStatBlock)
 		Registers the function name AST reference in the store and scope.
 		Note: Function parameters are not analyzed for usage as they're acceptable to be unused.
 	]]
-	getVarsVisitor.visitStatLocalFunction = function(statement: syntax.CstStatLocalFunction)
+	getVarsVisitor.visitStatLocalFunction = function(statement: cst.CstStatLocalFunction)
 		if not excludeVarName(statement.name.name.text) then
 			variables[statement.name] = 0 -- Initialize usage count
 			scopeStack[#scopeStack][statement.name.name.text] = statement.name -- Add to current scope
@@ -165,28 +164,27 @@ local function findVariables(block: syntax.CstStatBlock)
 		We use the function name (string, not AST node name) to index into globals.
 		When we find the function declaration, we then store the actual AST node reference.
 	]]
-	getVarsVisitor.visitStatFunction = function(statement: syntax.CstStatFunction)
-		local name = statement.name
-		if name.tag == "global" then
-			local funcName = name.name.text
+	getVarsVisitor.visitStatFunction = function(statement: cst.CstStatFunction)
+		if statement.name.name then
+			local funcName = statement.name.name.text
 			if not excludeVarName(funcName) then
 				if not globals[funcName] then
 					globals[funcName] = {
-						ref = name,
+						ref = statement.name,
 						beforeInitCnt = 0,
 					}
 				else
-					globals[funcName].ref = name
+					globals[statement.name.name.text].ref = statement.name
 				end
 				-- visitExpression will count the function definition as a use, so we decrement by one here
-				variables[name] = globals[funcName].beforeInitCnt - 1
+				variables[statement.name] = globals[statement.name.name.text].beforeInitCnt - 1
 			end
 			-- Global functions don't need to be added to scope stack since they're accessible everywhere
 		end
 		return true
 	end
 
-	getVarsVisitor.visitExprLocal = function(expression: syntax.CstExprLocal)
+	getVarsVisitor.visitExprLocal = function(expression: cst.CstExprLocal)
 		handleVarReference(expression, variables)
 		return true
 	end
@@ -196,7 +194,7 @@ local function findVariables(block: syntax.CstStatBlock)
 		Increments usage count for global functions that are already defined.
 		For references before definition, tracks the count to apply later when definition is found.
 	]]
-	getVarsVisitor.visitExprGlobal = function(expression: syntax.CstExprGlobal)
+	getVarsVisitor.visitExprGlobal = function(expression: cst.CstExprGlobal)
 		local globalFuncName
 		globalFuncName = expression.name.text
 		if not globals[globalFuncName] then
@@ -223,7 +221,7 @@ local function findVariables(block: syntax.CstStatBlock)
 		The AST node accessed by visitTypeReference has no access to the "local" references we use as keys in our variable store,
 		Thus, we search the scope stack to find the appropriate variable reference 
 	]]
-	getVarsVisitor.visitTypeReference = function(expression: syntax.CstTypeReference)
+	getVarsVisitor.visitTypeReference = function(expression: cst.CstTypeReference)
 		if expression.prefix then
 			local varName = expression.prefix.text
 			searchScopeStack(scopeStack, varName, variables)
@@ -231,7 +229,7 @@ local function findVariables(block: syntax.CstStatBlock)
 		return true
 	end
 
-	getVarsVisitor.visitStatAssign = function(expression: syntax.CstStatAssign)
+	getVarsVisitor.visitStatAssign = function(expression: cst.CstStatAssign)
 		handleAssign(expression.variables, expression.values, variables)
 		return true
 	end

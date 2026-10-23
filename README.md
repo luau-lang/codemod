@@ -70,34 +70,33 @@ end
 return migration
 ```
 
-The parsed tree is immutable. To modify the source, build a map of replacements from nodes to their new text, and
-pass it to the printer. A visitor mechanism is available for basic tree traversal:
+A visitor mechanism is also available for basic AST traversal and modification. Trees from `parser.parse` are immutable,
+so use `parseMutable` from `@lute/syntax/parser` to modify nodes in place.
 
 ```luau
-local parser = require("@std/syntax/parser")
+local parser = require("@lute/syntax/parser")
 local printer = require("@std/syntax/printer")
 local visitor = require("@std/syntax/visitor")
 
 function migration(ctx)
-    local parsedResult = parser.parse(ctx.source)
-    local replacements = {}
+    local parsedResult = parser.parseMutable(ctx.source)
 
     local uppercaseVisitor = visitor.create()
 
     uppercaseVisitor.visitExprLocal = function(node)
-        replacements[node.token] = node.token.text:upper()
+        node.token.text = node.token.text:upper()
         return true
     end
 
     visitor.visitBlock(parsedResult.root, uppercaseVisitor)
 
-    return printer.printFile(parsedResult, replacements)
+    return printer.printFile(parsedResult)
 end
 
 return migration
 ```
 
-For a more declarative approach, you can use a query-based select function:
+For a more declarative approach, you can use a query that builds a map of replacements for the printer:
 
 ```luau
 local parser = require("@std/syntax/parser")

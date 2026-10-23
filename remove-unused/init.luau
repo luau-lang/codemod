@@ -8,10 +8,11 @@
     variables or functions makes others unused.
 ]]
 
+local cst = require("@lute/syntax/mutablecst")
 local fs = require("@std/fs")
 local findVariables = require("./remove-unused/findVariablesUtils").findVariables
 local deleteVariables = require("./remove-unused/deleteVariables")
-local parser = require("@std/syntax/parser")
+local parser = require("@lute/syntax/parser")
 local printer = require("@std/syntax/printer")
 local helpers = require("./remove-unused/helpers/seleneHelpers")
 local getSeleneExclude = helpers.getSeleneExclude
@@ -49,30 +50,24 @@ end
     @return - The transformed source code with unused variables removed
 ]]
 local function transform(ctx: codemod.Context<Options>)
-	local source = ctx.source
+	local result = parser.parseMutable(ctx.source)
+	local block = result.root
 
 	if not excludeFile(ctx.path, seleneExclude) then
 		local numDeletions, removalExceptions = 1, 0
+		local _vars, deletions
 		while numDeletions > 0 do
-			local result = parser.parse(source)
-			local _vars, deletions
-			_vars, deletions, numDeletions = findVariables(result.root)
+			_vars, deletions, numDeletions = findVariables(block)
 			numDeletions -= removalExceptions
 			if numDeletions > 0 then
-				local replacements
-				replacements, removalExceptions = deleteVariables(result.root, deletions)
-				local newSource = printer.printFile(result, replacements)
-				if newSource == source then
-					break
-				end
-				source = newSource
+				block, removalExceptions = deleteVariables(block, deletions)
 			end
 		end
 	else
 		print(`Skipping {ctx.path} as per selene exlude`)
 	end
 
-	return source
+	return printer.printFile({ root = block, eof = result.eof })
 end
 
 return {
