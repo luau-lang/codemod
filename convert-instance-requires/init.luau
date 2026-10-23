@@ -4,12 +4,12 @@ local process = require("@lute/process")
 local parser = require("@std/syntax/parser")
 local printer = require("@std/syntax/printer")
 local syntax = require("@std/syntax")
+local query = require("@std/syntax/query")
 local syntaxTypes = require("@std/syntax/types")
 
 local path = require("./lib/path")
 local codemod = require("./lib/types")
 
-local query = require("./lib/query")
 local isRequire = require("./require-resolver/isRequire")
 local fileResolver = require("./require-resolver/resolver")
 local requireTracer = require("./require-resolver/tracer")
@@ -38,8 +38,8 @@ local function transform(ctx: codemod.Context<Options>)
 	local requireInfo =
 		requireTracer.traceRequires(result.root, ctx.path, fileResolver.createFileResolver(SourcemapData))
 
-	local requireCalls = query.selectExpression(result.root, function(node: syntax.CstExpr): syntax.CstExprCall?
-		if node.tag == "call" and isRequire(node) then
+	local requireCalls = query.findAllFromRoot(result, function(node: syntaxTypes.CstNode): syntax.CstExprCall?
+		if node.kind == "expr" and node.tag == "call" and isRequire(node) then
 			-- Skip requires that are already string-based
 			if node.arguments[1].tag == "string" then
 				return nil
@@ -48,7 +48,7 @@ local function transform(ctx: codemod.Context<Options>)
 			return node
 		end
 		return nil
-	end)
+	end).nodes
 
 	local replacements: syntaxTypes.Replacements = {}
 
