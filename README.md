@@ -71,7 +71,7 @@ return migration
 ```
 
 A visitor mechanism is also available for basic AST traversal and modification. Trees from `parser.parse` are immutable,
-so use `parseMutable` from `@lute/syntax/parser` to modify nodes in place.
+so use `parseMutable` from `@lute/syntax/parser` if you need to modify nodes in place.
 
 ```luau
 local parser = require("@lute/syntax/parser")
