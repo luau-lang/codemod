@@ -34,10 +34,10 @@ The remove-unused codemod handles the following unique cases:
 
 ## Usage
 
-Follow the main [README](../README.md) instructions for how to install the codemod driver
+Follow the main [README](../README.md) instructions for how to install Lute and run codemods with `lute transform`
 
 ```
-$ lute codemod/main.luau ./codemod/remove-unused --selene <path> <files...>
+$ lute transform codemod/remove-unused/init.luau <files...> -- --selene <path>
 ```
 
 ### Options

@@ -1,84 +1,118 @@
-# Name TBD
+# Luau Codemods
 
-A code migration tool for the [Luau](https://luau.org/) programming language, powered by [lute](https://github.com/luau-lang/lute).
-This tool provides a driver application to run any migrations (also known as transformations or codemods) on a particular set of files / directories.
+A collection of code migrations (also known as codemods or transformations) for the [Luau](https://luau.org/)
+programming language, along with the libraries that support them. Everything here is built on
+[Lute](https://github.com/luau-lang/lute) and its syntax libraries.
 
-## Usage
+> [!WARNING]
+> The codemod driver in this repository (`main.luau`, along with its supporting `lib/arguments.luau`, `lib/files.luau`
+> and `lib/ignore.luau`) is **deprecated**. Use Lute's built-in [`lute transform`](https://github.com/luau-lang/lute/blob/primary/docs/cli/transform.md)
+> command to run codemods instead. The codemods in this repository are compatible with `lute transform` as-is.
 
-To install, ensure the [lute](https://github.com/luau-lang/lute) runtime is available, and clone this repository:
+## Contents
+
+### Codemods
+
+| Codemod | Description |
+| --- | --- |
+| [`flag-clipper`](./flag-clipper) | Removes references to a fast flag, simplifying the code as if the flag were always `true` or `false` |
+| [`remove-unused`](./remove-unused) | Removes unused local variables and functions, e.g. those left behind after a flag cleanup |
+| [`convert-instance-requires`](./convert-instance-requires) | Converts Roblox instance-based requires (`require(script.Parent.Module)`) to string requires (`require("./Module")`) |
+| [`roundtrip.luau`](./roundtrip.luau) | Parses and reprints each file unchanged; useful for checking that the parser and printer preserve source exactly |
+
+### Libraries
+
+| Library | Description |
+| --- | --- |
+| [`require-resolver`](./require-resolver) | Detects `require` calls and resolves them to modules, using a Rojo sourcemap for instance-based requires |
+| [`config-resolver`](./config-resolver) | Reads `.luaurc` files and resolves the require aliases that apply to a given file |
+| [`lib`](./lib) | Shared utilities (paths, strings) and the deprecated driver's argument parsing, file discovery and ignore handling |
+
+## Running a codemod
+
+Install [Lute](https://github.com/luau-lang/lute), then clone this repository:
 
 ```sh
 $ git clone https://github.com/luau-lang/codemod.git
 ```
 
-Usage:
+Run a codemod with `lute transform`, passing the path to the codemod's `init.luau`, the files or directories to
+transform, and then the codemod's options after a `--` separator:
 
+```sh
+$ lute transform codemod/flag-clipper/init.luau src/ -- --flag MyFlag --value true --sourcemap sourcemap.json
 ```
-$ lute codemod/main.luau <codemod file> [migration options...] <files...>
-```
 
-This loads the provided code migration file and executes it on the set of files / directories provided.
-Any options are parsed and passed to the running migration.
+- The migration path must point at a file (e.g. `codemod/flag-clipper/init.luau`), not a directory.
+- Directories are searched recursively for `.luau` and `.lua` files, honouring `.gitignore` files. If no files are
+  given, the current directory is used.
+- Codemod options are passed as `--name value` pairs after `--`. Boolean options take `true` or `false`.
+- Use `--dry-run` to run without writing or deleting any files, `--interactive` (`-i`) to review a diff of each change
+  before it is written, and `--output <path>` (`-o`) to write the result to a separate file when transforming a single
+  file.
 
-> [!NOTE]
-> Due to the way Lute works, the path of `<codemod file>` must be relative to the location of `codemod/main.luau`.
-> e.g., to use the `flag-clipper` codemod, you would pass `./flag-clipper`. [Upstream Issue](https://github.com/luau-lang/lute/issues/321)
+See each codemod's README for its options.
 
-## Writing a code migration
+## Writing a codemod
 
-### Transformer function
-
-In its simplest form, a code migration is just a function that takes in the source code of a file, and
-returns a modified source code result.
-
-A sample migration file may look like below:
+A codemod is a Luau module that `lute transform` loads and applies to each file. In its simplest form, it returns a
+function that takes a context and returns the new source code for the file:
 
 ```luau
-function migration(ctx)
+local function transform(ctx)
     -- transform the provided ctx.source
     return ctx.source
 end
 
-return migration
+return transform
 ```
 
-The function is provided the following migration context (`ctx`):
+The context has the following shape. Its type is available as `Context` from the `@transform` alias, which
+`lute setup --with-luaurc` adds to the `.luaurc` in the current directory.
 
 ```luau
-type MigrationContext = {
-    path: string, -- The path to the file the migration is currently applying on
+type Context<Options = { [any]: any }> = {
+    path: string, -- The path to the file being transformed
     source: string, -- The source code of the file
+    parseresult: syntax.CstParseResult, -- The parsed concrete syntax tree (CST) of the file
+    options: Options, -- The parsed codemod options
 }
 ```
 
-The driver will then apply this function on all provided files. It is the driver's responsibility to filter the file
-input on provided glob patterns / ignore lists, as well as perform the necessary filesystem operations to read the file
-and then write the result.
+A transform may return either the new source as a `string`, or a table of replacements mapping nodes of
+`ctx.parseresult` to their new text. Lute then prints the file with those replacements applied.
 
-The migration driver itself does not perform any AST parsing or printing. However, Lute comes with a built-in Luau parser,
-available at `@std/syntax`:
+### Query-based transforms
+
+The CST in `ctx.parseresult` is immutable. For most codemods, the simplest approach is to select nodes with
+`@std/syntax/query` and return replacements for them:
 
 ```luau
-local parser = require("@std/syntax/parser")
-local printer = require("@std/syntax/printer")
+local query = require("@std/syntax/query")
+local utils = require("@std/syntax/utils")
 
-function migration(ctx)
-    local parsedResult = parser.parse(ctx.source)
-    return printer.printFile(parsedResult)
+local function transform(ctx)
+    return query.findAllFromRoot(ctx.parseresult, utils.isExprConstantNumber):replace(function(number)
+        return `{number.value * 2}`
+    end)
 end
 
-return migration
+return transform
 ```
 
-A visitor mechanism is also available for basic AST traversal and modification. Trees from `parser.parse` are immutable,
-so use `parseMutable` from `@lute/syntax/parser` if you need to modify nodes in place.
+Visitors from `@std/syntax/visitor` can also be used to traverse the tree and build up a replacements table.
+
+### Mutating the tree in place
+
+Codemods that restructure code heavily, like `flag-clipper` and `remove-unused`, can instead parse a mutable tree with
+`parseMutable` from `@lute/syntax/parser`, modify its nodes directly, and return the printed result:
 
 ```luau
 local parser = require("@lute/syntax/parser")
 local printer = require("@std/syntax/printer")
 local visitor = require("@std/syntax/visitor")
 
-function migration(ctx)
+local function transform(ctx)
     local parsedResult = parser.parseMutable(ctx.source)
 
     local uppercaseVisitor = visitor.create()
@@ -93,107 +127,45 @@ function migration(ctx)
     return printer.printFile(parsedResult)
 end
 
-return migration
-```
-
-For a more declarative approach, you can use a query that builds a map of replacements for the printer:
-
-```luau
-local parser = require("@std/syntax/parser")
-local printer = require("@std/syntax/printer")
-local query = require("@std/syntax/query")
-
-function migration(ctx)
-    local parsedResult = parser.parse(ctx.source)
-
-    local replacements = query
-        .findAllFromRoot(parsedResult, function(node)
-            return if isRequireCall(node) then node else nil
-        end)
-        :map(function(call)
-            return call.arguments[1]
-        end)
-        :replace(convertToStringRequire)
-
-    return printer.printFile(parsedResult, replacements)
-end
-
-return migration
+return transform
 ```
 
 ### Deleting a file
 
-If the migration wishes to delete the file given, it should return the deletion marker, available at `codemod/lib/types.luau`
+To delete the file being transformed, return the deletion marker, available as `DELETION_MARKER` from `@transform`:
 
 ```luau
-local driver = require("codemod/lib/types")
+local transformTypes = require("@transform")
 
-local function migration(ctx)
+local function transform(ctx)
     if shouldDeleteFile(ctx.source) then
-        return driver.DELETION_MARKER
+        return transformTypes.DELETION_MARKER
     end
 
     -- ...
 end
 ```
 
-If the deletion marker is returned, the driver will defer deletion of the input script until after all files have been
-processed. This is to allow require resolution to still work even if a file is to-be-deleted.
+Deletions are deferred until all files have been processed, so require resolution still works for files that are about
+to be deleted.
 
-### Migration Configuration
+### Options and initialization
 
-More complex migrations may wish to allow configuration to control how the migration behaves.
-To do so, the migration module can return a table instead of just a function. This table must contain a `transform`
-function, and may contain an `options` table to parse particular flags:
-
-```luau
-local function migration(ctx)
-    -- ...
-end
-
-return {
-    options = {
-        { name = "NAME", kind = "KIND", default = ... },
-        ...
-    },
-    transform = migration
-}
-```
-
-An option follows the following schema:
-
-```luau
-type MigrationOption =
-    | { name: string, kind: "string", default: string? }
-    | { name: string, kind: "boolean", default: boolean? }
-```
-
-It is the responsibility of the driver to ensure the options are parsed and provided to the migration. If a default is
-specified, the flag is optional, otherwise it must be specified. Currently, only `string` and `boolean` configuration
-are supported.
-
-The resolved options are then made available as part of the migration context
-
-```luau
-type MigrationContext<Options = {}> = {
-    path: string,
-    source: string,
-    options: Options
-}
-```
-
-To use the options on the command line, they should be passed as flags after the migration module path, e.g.:
-
-For the following migration:
+A codemod can return a table instead of a function. The table must contain a `transform` function, and may contain an
+`options` list and an `initialize` function:
 
 ```luau
 type Options = {
     name: string,
-    value: boolean
+    value: boolean,
 }
 
+local function initialize(ctx: { options: Options })
+    -- runs once, before any file is transformed
+    -- e.g. parsing a sourcemap for require resolution
+end
 
-local function migration(ctx: MigrationContext<Options>)
+local function transform(ctx)
     local name = ctx.options.name
     local value = ctx.options.value
     -- ...
@@ -202,42 +174,33 @@ end
 return {
     options = {
         { name = "name", kind = "string" },
-        { name = "value", kind = "boolean", default = true }
-    }
-    transform = migration,
-}
-```
-
-The flags are passed as:
-
-```
-$ lute codemod/main.luau transform.luau --name STRING --value BOOLEAN <files...>
-```
-
-### Migration Initialization
-
-Some migrations have initialization steps they wish to take before executing the migration on each file.
-For example, this may include parsing and loading a sourcemap for require resolution, or installing a pre-requisite
-dependency for the migration.
-
-To do so, the migration module can return a table with an `initialize` function:
-
-```luau
-local function initialize(ctx)
-    -- ...
-end
-
-local function migration(ctx)
-    -- ...
-end
-
-return {
-    options = {
-        ...
+        { name = "value", kind = "boolean", default = true },
     },
     initialize = initialize,
-    transform = migration
+    transform = transform,
 }
 ```
 
-The initialize function is executed once at the start by the driver, before the transform is applied on files.
+Options are either `string` or `boolean`. An option with a `default` is optional; any other option must be passed on
+the command line:
+
+```sh
+$ lute transform transform.luau src/ -- --name STRING --value BOOLEAN
+```
+
+## Deprecated: the codemod driver
+
+Before `lute transform` existed, codemods were run with this repository's driver:
+
+```sh
+$ lute codemod/main.luau ./flag-clipper --flag MyFlag --value true --sourcemap sourcemap.json src/
+```
+
+The driver accepts the same module shape (`transform`, `options` and `initialize`) and the same deletion marker, but
+it does not provide `ctx.parseresult` and only accepts a `string` result. It resolves the codemod path relative to
+`main.luau` rather than the working directory. It is no longer recommended, and may be removed in the future.
+
+## Development
+
+Tests are plain Lute scripts, run with `lute <path>`; see [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) for
+the full list. Code is formatted with [StyLua](https://github.com/JohnnyMorganz/StyLua) (`stylua --check .`).
