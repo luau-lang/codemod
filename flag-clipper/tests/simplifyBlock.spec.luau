@@ -1,4 +1,4 @@
-local parser = require("@std/syntax/parser")
+local parser = require("@lute/syntax/parser")
 local printer = require("@std/syntax/printer")
 
 local evaluate = require("../evaluate")
@@ -23,10 +23,10 @@ local function apply(source: string, flagName: string?, flagValue: boolean?)
 		references = references,
 	}
 
-	local parseResult = parser.parse(source)
+	local parseResult = parser.parseMutable(source)
 	references:visit(parseResult.root)
 	parseResult.root = simplifyBlock(parseResult.root, context)
-	return printer.printfile(parseResult)
+	return printer.printFile(parseResult)
 end
 
 local function test_removeDefinition()

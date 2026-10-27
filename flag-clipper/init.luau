@@ -1,6 +1,6 @@
-local luau = require("@lute/luau")
+local cst = require("@lute/syntax/mutablecst")
 
-local parser = require("@std/syntax/parser")
+local parser = require("@lute/syntax/parser")
 local printer = require("@std/syntax/printer")
 local visitor = require("@std/syntax/visitor")
 
@@ -18,7 +18,7 @@ local simplifyBlock = require("@self/simplifyBlock")
 --- Global cache for sourcemap data
 local SourcemapData: sourcemap.SourcemapData? = nil
 
-local function inplaceReplace(old: luau.AstExpr, new: luau.AstExpr, references: TrackReferences.TrackReferences)
+local function inplaceReplace(old: cst.CstExpr, new: cst.CstExpr, references: TrackReferences.TrackReferences)
 	if old == new then
 		return
 	end
@@ -58,7 +58,7 @@ local function initialize(ctx: codemod.InitializationContext<Options>)
 end
 
 local function transform(ctx: codemod.Context<Options>)
-	local result = parser.parse(ctx.source)
+	local result = parser.parseMutable(ctx.source)
 	local block = result.root
 
 	local requireInfo = requireTracer.traceRequires(block, ctx.path, fileResolver.createFileResolver(SourcemapData))
@@ -80,7 +80,7 @@ local function transform(ctx: codemod.Context<Options>)
 
 	-- TODO: might want to double check the complexity here, since `simplifyExpression` is also recursive
 	-- do we end up simplifying it twice?
-	flagVisitor.visitExprEnd = function(expression: luau.AstExpr)
+	flagVisitor.visitExprEnd = function(expression: cst.CstExpr)
 		local newExpression = simplifyExpression(expression, simplifyCtx)
 		inplaceReplace(expression, newExpression, references)
 	end
@@ -90,9 +90,9 @@ local function transform(ctx: codemod.Context<Options>)
 		block.statements = newBlock.statements
 	end
 
-	visitor.visitblock(block, flagVisitor)
+	visitor.visitBlock(block, flagVisitor)
 
-	return printer.printfile({ root = block, eof = result.eof })
+	return printer.printFile({ root = block, eof = result.eof })
 end
 
 return {

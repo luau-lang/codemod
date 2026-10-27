@@ -92,7 +92,7 @@ local function applyMigration(
 	for _, path in paths do
 		print(`Applying to {path}`)
 
-		local source = fs.readfiletostring(path)
+		local source = fs.readFileToString(path)
 
 		local ctx = {
 			path = path,
@@ -113,7 +113,7 @@ local function applyMigration(
 			print(`Marking {path} for deletion`)
 			table.insert(deletedPaths, path)
 		elseif result ~= source and not dryRun then
-			fs.writestringtofile(path, result)
+			fs.writeStringToFile(path, result)
 		end
 	end
 

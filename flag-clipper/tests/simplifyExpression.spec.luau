@@ -1,4 +1,4 @@
-local parser = require("@std/syntax/parser")
+local parser = require("@lute/syntax/parser")
 local printer = require("@std/syntax/printer")
 
 local evaluate = require("../evaluate")
@@ -6,7 +6,7 @@ local simplify = require("../simplifyExpression")
 local TrackReferences = require("../TrackReferences")
 
 local function printSimplify(source: string)
-	local expression = parser.parseexpr(source)
+	local expression = parser.parseMutableExpr(source)
 	local references = TrackReferences.new("FlagName", true, {})
 	references:_visitExpressionForTesting(expression)
 
@@ -16,7 +16,7 @@ local function printSimplify(source: string)
 		references = references,
 	}
 
-	return printer.printnode(simplify(expression, context))
+	return printer.printNode(simplify(expression, context))
 end
 
 local function case(str: string, exp: string)

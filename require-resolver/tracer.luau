@@ -1,12 +1,12 @@
-local luau = require("@lute/luau")
+local syntax = require("@std/syntax")
 local visitor = require("@std/syntax/visitor")
 
 local isRequire = require("./isRequire")
 local resolver = require("./resolver")
 
 type RequireTracer = visitor.Visitor & {
-	_requireCalls: { luau.AstExprCall },
-	_locals: { [luau.AstLocal]: luau.AstExpr },
+	_requireCalls: { syntax.CstExprCall },
+	_locals: { [syntax.CstLocal]: syntax.CstExpr },
 }
 
 local function newRequireTracer(): RequireTracer
@@ -27,21 +27,21 @@ local function newRequireTracer(): RequireTracer
 		return true
 	end
 
-	traceVisitor.visitStatLocalDeclaration = function(node: luau.AstStatLocal)
+	traceVisitor.visitStatLocalDeclaration = function(node: syntax.CstStatLocal)
 		for i = 1, math.min(#node.variables, #node.values) do
-			local variable = node.variables[i].node
-			local value = node.values[i].node
+			local variable = node.variables[i]
+			local value = node.values[i]
 			traceVisitor._locals[variable] = value
 		end
 
 		return true
 	end
 
-	traceVisitor.visitStatAssign = function(node: luau.AstStatAssign)
+	traceVisitor.visitStatAssign = function(node: syntax.CstStatAssign)
 		for _, var in node.variables do
 			-- locals that are assigned don't have a known expression
-			if var.node.tag == "local" then
-				traceVisitor._locals[var.node["local"]] = nil
+			if var.tag == "local" then
+				traceVisitor._locals[var["local"]] = nil
 			end
 		end
 
@@ -51,7 +51,7 @@ local function newRequireTracer(): RequireTracer
 	return traceVisitor
 end
 
-local function getDependent(tracer: RequireTracer, node: luau.AstExpr): luau.AstExpr?
+local function getDependent(tracer: RequireTracer, node: syntax.CstExpr): syntax.CstExpr?
 	if node.tag == "local" then
 		return tracer._locals[node["local"]]
 	elseif node.tag == "indexname" then
@@ -68,17 +68,17 @@ local function getDependent(tracer: RequireTracer, node: luau.AstExpr): luau.Ast
 	return nil
 end
 
-export type RequireTracerResult = { [luau.AstExprCall]: resolver.ModuleInfo }
+export type RequireTracerResult = { [syntax.CstExprCall]: resolver.ModuleInfo }
 
 local function processTracer(
 	tracer: RequireTracer,
 	resolver: resolver.Resolver,
 	currentModuleName: resolver.ModuleName
 ): RequireTracerResult
-	local work = table.create(#tracer._requireCalls, (nil :: any) :: luau.AstExpr)
+	local work = table.create(#tracer._requireCalls, (nil :: any) :: syntax.CstExpr)
 
 	for _, call in tracer._requireCalls do
-		table.insert(work, call.arguments[1].node)
+		table.insert(work, call.arguments[1])
 	end
 
 	-- push all dependent expressions to the work stack; note that the vector is modified during traversal
@@ -125,7 +125,7 @@ local function processTracer(
 	-- resolve all requires according to their argument
 	local result = {}
 	for _, call in tracer._requireCalls do
-		local argument = call.arguments[1].node
+		local argument = call.arguments[1]
 		if exprMap[argument] then
 			result[call] = exprMap[argument]
 		else
@@ -136,9 +136,9 @@ local function processTracer(
 	return result
 end
 
-local function traceRequires(block: luau.AstStatBlock, from: resolver.ModuleName, resolver: resolver.Resolver)
+local function traceRequires(block: syntax.CstStatBlock, from: resolver.ModuleName, resolver: resolver.Resolver)
 	local traceVisitor = newRequireTracer()
-	visitor.visitblock(block, traceVisitor)
+	visitor.visitBlock(block, traceVisitor)
 	return processTracer(traceVisitor, resolver, from)
 end
 

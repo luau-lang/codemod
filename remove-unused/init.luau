@@ -8,11 +8,11 @@
     variables or functions makes others unused.
 ]]
 
-local luau = require("@lute/luau")
+local cst = require("@lute/syntax/mutablecst")
 local fs = require("@std/fs")
 local findVariables = require("./remove-unused/findVariablesUtils").findVariables
 local deleteVariables = require("./remove-unused/deleteVariables")
-local parser = require("@std/syntax/parser")
+local parser = require("@lute/syntax/parser")
 local printer = require("@std/syntax/printer")
 local helpers = require("./remove-unused/helpers/seleneHelpers")
 local getSeleneExclude = helpers.getSeleneExclude
@@ -33,7 +33,7 @@ local seleneExclude: { string } = {}
 ]]
 local function initialize(ctx: codemod.InitializationContext<Options>)
 	if ctx.options.selene ~= "" then
-		local seleneTomlSrc = fs.readfiletostring(ctx.options.selene)
+		local seleneTomlSrc = fs.readFileToString(ctx.options.selene)
 		seleneExclude = getSeleneExclude(seleneTomlSrc)
 	end
 end
@@ -50,7 +50,7 @@ end
     @return - The transformed source code with unused variables removed
 ]]
 local function transform(ctx: codemod.Context<Options>)
-	local result = parser.parse(ctx.source)
+	local result = parser.parseMutable(ctx.source)
 	local block = result.root
 
 	if not excludeFile(ctx.path, seleneExclude) then
@@ -67,7 +67,7 @@ local function transform(ctx: codemod.Context<Options>)
 		print(`Skipping {ctx.path} as per selene exlude`)
 	end
 
-	return printer.printfile({ root = block, eof = result.eof })
+	return printer.printFile({ root = block, eof = result.eof })
 end
 
 return {

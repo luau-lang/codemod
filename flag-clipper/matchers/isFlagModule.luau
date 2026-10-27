@@ -1,4 +1,4 @@
-local luau = require("@lute/luau")
+local syntax = require("@std/syntax")
 
 local visitor = require("@std/syntax/visitor")
 
@@ -9,18 +9,18 @@ type FlagModuleKind =
 	| "constant" -- Module returned game:DefineFastFlag() / game:GetFastFlag() directly
 	| "function" -- Module returned a function that retrieves the FFlag value
 
-local function isFlagReference(body: luau.AstStatBlock, variable: luau.AstLocal, flagName: string): boolean
+local function isFlagReference(body: syntax.CstStatBlock, variable: syntax.CstLocal, flagName: string): boolean
 	-- TODO: re-use the TrackReferences set up
 	-- Right now, it has a circular dependency
 
 	local trackLocalsVisitor = visitor.create()
 	local result = false
 
-	trackLocalsVisitor.visitStatLocalDeclaration = function(node: luau.AstStatLocal)
+	trackLocalsVisitor.visitStatLocalDeclaration = function(node: syntax.CstStatLocal)
 		for i, var in node.variables do
-			if var.node == variable then
+			if var == variable then
 				if #node.values >= i then
-					local expr = node.values[i].node
+					local expr = node.values[i]
 					result = isFlagAccess(expr, flagName) or isFlagFunction.isExprFlagFunction(expr, flagName)
 				end
 				return false
@@ -29,7 +29,7 @@ local function isFlagReference(body: luau.AstStatBlock, variable: luau.AstLocal,
 		return true
 	end
 
-	trackLocalsVisitor.visitStatLocalFunction = function(node: luau.AstStatLocalFunction)
+	trackLocalsVisitor.visitStatLocalFunction = function(node: syntax.CstStatLocalFunction)
 		if node.name == variable then
 			result = isFlagFunction.isStmtFlagFunction(node, flagName)
 			return false
@@ -38,12 +38,12 @@ local function isFlagReference(body: luau.AstStatBlock, variable: luau.AstLocal,
 		return true
 	end
 
-	visitor.visitblock(body, trackLocalsVisitor)
+	visitor.visitBlock(body, trackLocalsVisitor)
 
 	return result
 end
 
-local function isFlagModule(body: luau.AstStatBlock, flagName: string): (boolean, FlagModuleKind)
+local function isFlagModule(body: syntax.CstStatBlock, flagName: string): (boolean, FlagModuleKind)
 	if #body.statements == 0 then
 		return false :: any
 	end
@@ -57,7 +57,7 @@ local function isFlagModule(body: luau.AstStatBlock, flagName: string): (boolean
 		return false :: any
 	end
 
-	local expression = lastStmt.expressions[1].node
+	local expression = lastStmt.expressions[1]
 
 	if isFlagFunction.isExprFlagFunction(expression, flagName) then
 		return true, "function"

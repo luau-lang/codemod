@@ -2,28 +2,28 @@ local parser = require("@std/syntax/parser")
 local isRequire = require("../isRequire")
 
 local function test_matchesStringRequire()
-	local expr = parser.parseexpr('require("./path/to/file")')
+	local expr = parser.parseExpr('require("./path/to/file")')
 
 	assert(expr.tag == "call")
 	assert(isRequire(expr) == true)
 end
 
 local function test_matchesRobloxGlobalRequire()
-	local expr = parser.parseexpr("require(game.ReplicatedStorage.Module)")
+	local expr = parser.parseExpr("require(game.ReplicatedStorage.Module)")
 
 	assert(expr.tag == "call")
 	assert(isRequire(expr) == true)
 end
 
 local function test_matchesRobloxLocalRequire()
-	local expr = parser.parseexpr("require(value.Parent)")
+	local expr = parser.parseExpr("require(value.Parent)")
 
 	assert(expr.tag == "call")
 	assert(isRequire(expr) == true)
 end
 
 local function test_doesNotMatchOtherCall()
-	local expr = parser.parseexpr('call("hello!")')
+	local expr = parser.parseExpr('call("hello!")')
 
 	assert(expr.tag == "call")
 	assert(isRequire(expr) == false)

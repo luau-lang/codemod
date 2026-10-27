@@ -18,7 +18,7 @@ local function printTable(table, indent: number, result: boolean?)
 					indentString
 						.. tostring((k.name and (k.name.text or k.text)) or k)
 						.. ", line "
-						.. tostring(if k.name and k.name.position then k.name.position.line else "")
+						.. tostring(if k.name and k.name.location then k.name.location.beginLine else "")
 						.. ": "
 						.. tostring(v)
 				)
@@ -27,7 +27,7 @@ local function printTable(table, indent: number, result: boolean?)
 					indentString
 						.. tostring((v.name and (v.name.text or v.text)) or v)
 						.. ", line "
-						.. tostring(if v.name and v.name.position then v.name.position.line else "")
+						.. tostring(if v.name and v.name.location then v.name.location.beginLine else "")
 				)
 			end
 		end

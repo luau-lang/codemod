@@ -1,4 +1,4 @@
-local parser = require("@std/syntax/parser")
+local parser = require("@lute/syntax/parser")
 local evaluate = require("../evaluate")
 local TrackReferences = require("../TrackReferences")
 
@@ -14,7 +14,7 @@ local function apply(source: string, flagName: string?, flagValue: boolean?): bo
 		references = references,
 	}
 
-	local parseResult = parser.parseexpr(source)
+	local parseResult = parser.parseMutableExpr(source)
 	references:_visitExpressionForTesting(parseResult)
 	return evaluate(parseResult, context)
 end

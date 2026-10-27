@@ -1,4 +1,4 @@
-local luau = require("@lute/luau")
+local cst = require("@lute/syntax/mutablecst")
 local findVariablesUtils = require("./findVariablesUtils")
 local visitor = require("@std/syntax/visitor")
 local triviaHelpers = require("./helpers/triviaHelpers")
@@ -6,6 +6,7 @@ local handleLeadingTriviaInsertion = triviaHelpers.handleLeadingTriviaInsertion
 local storeStatementTrivia = triviaHelpers.storeStatementTrivia
 local handleVariableStatementTrivia = triviaHelpers.handleVariableStatementTrivia
 local handleLeftoverTrivia = triviaHelpers.handleLeftoverTrivia
+local getConstantToken = triviaHelpers.getConstantToken
 
 type deletionStore = findVariablesUtils.deletionStore
 
@@ -28,8 +29,8 @@ local removalExceptions = 0
 	@return true if we are keeping the statement as it originally was, false otherwise
 ]]
 local function keepAllVariables(
-	varsToKeep: luau.Punctuated<luau.AstLocal>,
-	valsToKeep: luau.Punctuated<luau.AstExpr>,
+	varsToKeep: cst.CstPunctuated<cst.CstLocal>,
+	valsToKeep: cst.CstPunctuated<cst.CstExpr>,
 	varStatement,
 	hasValues
 ): boolean
@@ -66,24 +67,25 @@ end
 	@return `newVals` table containing the corresponding value nodes of `newVars`
 ]]
 local function filterVariablesAndValues(
-	varStatement: luau.AstStatLocal | luau.AstStatAssign,
+	varStatement: cst.CstStatLocal | cst.CstStatAssign,
 	deletions: deletionStore,
 	isAssign: boolean,
 	hasValues: boolean?
 )
-	local varsToKeep, valsToKeep = {}, {}
+	local varsToKeep = setmetatable({ separators = {} }, getmetatable(varStatement.variables))
+	local valsToKeep = setmetatable({ separators = {} }, getmetatable(varStatement.values))
 	local statementTrailingTrivia = if hasValues
-		then varStatement.values[#varStatement.values].node.trailingtrivia
-		else varStatement.variables[#varStatement.variables].node.name.trailingtrivia
+		then (getConstantToken(varStatement.values[#varStatement.values]) or {}).trailingTrivia
+		else varStatement.variables[#varStatement.variables].name.trailingTrivia
 
 	for i = 1, #varStatement.variables do
-		local deletionsKey = if isAssign
-			then varStatement.variables[i].node["local"]
-			else varStatement.variables[i].node
+		local deletionsKey = if isAssign then varStatement.variables[i]["local"] else varStatement.variables[i]
 		if not deletions[deletionsKey] then -- keep the variable and the value it is assigned
 			table.insert(varsToKeep, varStatement.variables[i])
+			varsToKeep.separators[#varsToKeep] = varStatement.variables.separators[i]
 			if hasValues then
 				table.insert(valsToKeep, varStatement.values[i])
+				valsToKeep.separators[#valsToKeep] = varStatement.values.separators[i]
 			end
 		end
 	end
@@ -100,7 +102,7 @@ local function filterVariablesAndValues(
 end
 
 local function handleVariableStatement(
-	varStatement: luau.AstStatLocal | luau.AstStatAssign,
+	varStatement: cst.CstStatLocal | cst.CstStatAssign,
 	deletions: deletionStore,
 	isAssign: boolean
 )
@@ -108,11 +110,11 @@ local function handleVariableStatement(
 	return varsToKeep, valsToKeep
 end
 
-local function deleteVariables(block: luau.AstStatBlock, deletions: deletionStore)
+local function deleteVariables(block: cst.CstStatBlock, deletions: deletionStore)
 	removalExceptions = 0
 	local removalsVisitor = visitor.create()
 
-	removalsVisitor.visitStatBlockEnd = function(block: luau.AstStatBlock)
+	removalsVisitor.visitStatBlockEnd = function(block: cst.CstStatBlock)
 		local filteredStatements = {}
 
 		local removedTrivia = {} -- store trivia of removed statements so we can preserve it
@@ -150,7 +152,7 @@ local function deleteVariables(block: luau.AstStatBlock, deletions: deletionStor
 		block.statements = filteredStatements
 	end
 
-	visitor.visitblock(block, removalsVisitor)
+	visitor.visitBlock(block, removalsVisitor)
 
 	return block, removalExceptions
 end

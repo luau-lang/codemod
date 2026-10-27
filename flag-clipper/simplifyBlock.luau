@@ -1,4 +1,4 @@
-local luau = require("@lute/luau")
+local cst = require("@lute/syntax/mutablecst")
 local visitor = require("@std/syntax/visitor")
 
 local createConstantBoolean = require("./createConstantBoolean")
@@ -7,13 +7,14 @@ local simplifyConditional = require("./simplifyConditional")
 local trivia = require("./trivia")
 
 --- Simplify expressions that directly reference the flag (or its inverse)
-local function simplifyConstantExpression(ctx: evaluate.EvaluateContext, expression: luau.AstExpr): luau.AstExpr?
+local function simplifyConstantExpression(ctx: evaluate.EvaluateContext, expression: cst.CstExpr): cst.CstExpr?
 	local constantEvaluation = evaluate(expression, ctx)
 	if constantEvaluation ~= nil then
 		return createConstantBoolean(
 			constantEvaluation,
 			trivia.getLeadingTrivia(expression),
-			trivia.getTrailingTrivia(expression)
+			trivia.getTrailingTrivia(expression),
+			expression.location
 		)
 	end
 
@@ -22,33 +23,33 @@ end
 
 --- Checks to see if the provided expression has a reference to the provided local.
 --- e.g., for the local `value`, and the expression `call(value)`, return true.
-local function expressionReferencesLocal(expression: luau.AstExpr, loc: luau.AstLocal)
+local function expressionReferencesLocal(expression: cst.CstExpr, loc: cst.CstLocal)
 	local isReferencingLocal = false
 
 	local referenceVisitor = visitor.create()
-	referenceVisitor.visitExprLocal = function(reference: luau.AstExprLocal)
+	referenceVisitor.visitExprLocal = function(reference: cst.CstExprLocal)
 		if loc == reference["local"] then
 			isReferencingLocal = true
 			return false
 		end
 		return true
 	end
-	visitor.visitexpression(expression, referenceVisitor)
+	visitor.visitExpression(expression, referenceVisitor)
 
 	return isReferencingLocal
 end
 
 -- Simplifies values in locals or assigns.
-local function simplifyPunctuated(statement: luau.AstStatLocal | luau.AstStatAssign, ctx: evaluate.EvaluateContext)
-	for _, expression in statement.values do
-		local simplified = simplifyConstantExpression(ctx, expression.node)
+local function simplifyPunctuated(statement: cst.CstStatLocal | cst.CstStatAssign, ctx: evaluate.EvaluateContext)
+	for i, expression in statement.values do
+		local simplified = simplifyConstantExpression(ctx, expression)
 		if simplified then
-			expression.node = simplified
+			statement.values[i] = simplified
 		end
 	end
 end
 
-local function simplifyBlock(block: luau.AstStatBlock, ctx: evaluate.EvaluateContext): luau.AstStatBlock
+local function simplifyBlock(block: cst.CstStatBlock, ctx: evaluate.EvaluateContext): cst.CstStatBlock
 	local statements = {}
 
 	for _, statement in block.statements do
@@ -62,7 +63,7 @@ local function simplifyBlock(block: luau.AstStatBlock, ctx: evaluate.EvaluateCon
 			-- Skip (i.e. delete) if all variables are marked for deletion
 			local shouldDelete = true
 			for _, variable in statement.variables do
-				if not ctx.references:isLocalReference(variable.node) then
+				if not ctx.references:isLocalReference(variable) then
 					shouldDelete = false
 					break
 				end
@@ -95,7 +96,7 @@ local function simplifyBlock(block: luau.AstStatBlock, ctx: evaluate.EvaluateCon
 			-- Skip (i.e. delete) if any assignment target is a flag reference
 			local shouldDelete = false
 			for _, variable in statement.variables do
-				if ctx.references:isReference(variable.node) then
+				if ctx.references:isReference(variable) then
 					shouldDelete = true
 					break
 				end
@@ -109,10 +110,10 @@ local function simplifyBlock(block: luau.AstStatBlock, ctx: evaluate.EvaluateCon
 
 			table.insert(statements, statement)
 		elseif statement.tag == "return" then
-			for _, expression in statement.expressions do
-				local simplified = simplifyConstantExpression(ctx, expression.node)
+			for i, expression in statement.expressions do
+				local simplified = simplifyConstantExpression(ctx, expression)
 				if simplified then
-					expression.node = simplified
+					statement.expressions[i] = simplified
 				end
 			end
 
@@ -135,16 +136,16 @@ local function simplifyBlock(block: luau.AstStatBlock, ctx: evaluate.EvaluateCon
 						and #otherStatement.variables == 1
 						and #otherStatement.values == 1
 					then
-						local assigningTo = otherStatement.variables[1].node
+						local assigningTo = otherStatement.variables[1]
 						local previousStatement = statements[#statements]
 						if
 							assigningTo.tag == "local"
 							and previousStatement.tag == "local"
 							and #previousStatement.variables == 1
-							and previousStatement.variables[1].node == assigningTo["local"]
-							and not expressionReferencesLocal(otherStatement.values[1].node, assigningTo["local"])
+							and previousStatement.variables[1] == assigningTo["local"]
+							and not expressionReferencesLocal(otherStatement.values[1], assigningTo["local"])
 						then
-							previousStatement.variables[1].node.name.trailingtrivia = assigningTo.token.trailingtrivia
+							previousStatement.variables[1].name.trailingTrivia = assigningTo.token.trailingTrivia
 							previousStatement.equals = otherStatement.equals
 							previousStatement.values = otherStatement.values
 							continue

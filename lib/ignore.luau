@@ -144,7 +144,7 @@ local function parseGitignoreContents(location: string, contents: string): Gitig
 end
 
 local function parseGitignore(filepath: string): GitignoreData
-	local contents = fs.readfiletostring(filepath)
+	local contents = fs.readFileToString(filepath)
 	return parseGitignoreContents(assert(path.dirname(filepath)), contents)
 end
 

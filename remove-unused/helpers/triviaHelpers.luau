@@ -1,4 +1,4 @@
-local luau = require("@lute/luau")
+local cst = require("@lute/syntax/mutablecst")
 local visitor = require("@std/syntax/visitor")
 
 --[[
@@ -14,28 +14,46 @@ local function filterTrailingTrivia(trivia)
 	return {}
 end
 
-local function getStatementFirstAndLastToken(statement: luau.AstStat)
-	local firstToken: luau.Token? = nil
-	local lastToken: luau.Token? = nil
+--[[
+    Returns the token holding the trivia of a constant expression (nil, boolean, number or string),
+    or nil for any other expression.
+]]
+local function getConstantToken(expression: cst.CstExpr): cst.CstToken?
+	if expression.tag == "string" then
+		return expression.value
+	elseif
+		expression.tag == "nil"
+		or expression.tag == "boolean"
+		or expression.tag == "number"
+		or expression.tag == "integer"
+	then
+		return expression.token
+	end
+	return nil
+end
+
+local function getStatementFirstAndLastToken(statement: cst.CstStat)
+	local firstToken: cst.CstToken? = nil
+	local lastToken: cst.CstToken? = nil
 	local tokenFinder = visitor.create()
-	tokenFinder.visitToken = function(token: luau.Token)
+	tokenFinder.visitToken = function(token: cst.CstToken)
 		if not firstToken then
 			firstToken = token
 		end
 		lastToken = token
 		return false
 	end
-	visitor.visitstatement(statement, tokenFinder)
+	visitor.visitStatement(statement, tokenFinder)
 	assert(firstToken ~= nil and lastToken ~= nil)
 	return firstToken, lastToken
 end
 
-local function getStatementTrivia(statement: luau.AstStat)
+local function getStatementTrivia(statement: cst.CstStat)
 	local firstToken, lastToken = getStatementFirstAndLastToken(statement)
-	return firstToken.leadingtrivia, lastToken.trailingtrivia
+	return firstToken.leadingTrivia, lastToken.trailingTrivia
 end
 
-local function attachTriviaInOrder(attachTo, toAttach: { luau.Trivia })
+local function attachTriviaInOrder(attachTo, toAttach: { cst.Trivia })
 	while #toAttach > 0 do
 		local trivia = table.remove(toAttach, 1)
 		for _, token in pairs(trivia) do
@@ -57,7 +75,7 @@ end
     @param toInsert - The trivia to insert
     @return - The combined trivia
 ]]
-local function insertLeadingTrivia(attachTo: luau.Token, toInsert: { { luau.Trivia } })
+local function insertLeadingTrivia(attachTo: cst.CstToken, toInsert: { { cst.Trivia } })
 	local newTrivia = {}
 
 	-- Process each trivia node to insert
@@ -75,9 +93,9 @@ end
     @param statement - The AST statement to attach trivia to
     @param triviaToInsert - The trivia to insert
 ]]
-local function handleLeadingTriviaInsertion(statement: luau.AstStat, triviaToInsert: { { luau.Trivia } })
+local function handleLeadingTriviaInsertion(statement: cst.CstStat, triviaToInsert: { { cst.Trivia } })
 	local leadingToken, _ = getStatementFirstAndLastToken(statement)
-	leadingToken.leadingtrivia = insertLeadingTrivia(leadingToken.leadingtrivia, triviaToInsert)
+	leadingToken.leadingTrivia = insertLeadingTrivia(leadingToken.leadingTrivia, triviaToInsert)
 end
 
 --[[    
@@ -85,17 +103,17 @@ end
 	@param toInsert -  trivia to append to the found trailing triva
     @return - The trailing trivia of the statement
 ]]
-local function appendTrailingTrivia(statement: luau.AstStat, toAppend: { luau.Trivia })
+local function appendTrailingTrivia(statement: cst.CstStat, toAppend: { cst.Trivia })
 	local _, trailingToken = getStatementFirstAndLastToken(statement)
 
-	attachTriviaInOrder(trailingToken.trailingtrivia, toAppend)
+	attachTriviaInOrder(trailingToken.trailingTrivia, toAppend)
 end
 
 --[[
     @param statement - The AST statement to extract trivia from
     @param triviaDeposit - The table where extracted trivia will be stored
 ]]
-local function storeStatementTrivia(statement: luau.AstStat, triviaDeposit: { { luau.Trivia } })
+local function storeStatementTrivia(statement: cst.CstStat, triviaDeposit: { { cst.Trivia } })
 	local statementLeadingTrivia, statementTrailingTrivia = getStatementTrivia(statement)
 
 	table.insert(triviaDeposit, statementLeadingTrivia)
@@ -112,27 +130,30 @@ end
 	@param statementTrailingTrivia - the trailing trivia of the original statement
 ]]
 local function handleVariableStatementTrivia(
-	varsToKeep: luau.Punctuated<luau.AstLocal>,
-	valsToKeep: luau.Punctuated<luau.AstExpr>,
-	statementTrailingTrivia: { luau.Trivia }
+	varsToKeep: cst.CstPunctuated<cst.CstLocal>,
+	valsToKeep: cst.CstPunctuated<cst.CstExpr>,
+	statementTrailingTrivia: { cst.Trivia }
 )
 	-- Note: this function is only useful if we remove the original last variable in the statement, otherwise it's trivia will already be correct
 	local hasValues = #valsToKeep > 0
-	if varsToKeep[#varsToKeep].separator then
+	if varsToKeep.separators[#varsToKeep] then
 		if hasValues then
-			varsToKeep[#varsToKeep].separator.text = ""
+			varsToKeep.separators[#varsToKeep].text = ""
 		else
-			varsToKeep[#varsToKeep].separator = nil
-			varsToKeep[#varsToKeep].node.name.trailingtrivia = statementTrailingTrivia
+			varsToKeep.separators[#varsToKeep] = nil
+			varsToKeep[#varsToKeep].name.trailingTrivia = statementTrailingTrivia
 		end
 	end
 	if hasValues then
-		valsToKeep[#valsToKeep].separator = nil
-		valsToKeep[#valsToKeep].node.trailingtrivia = statementTrailingTrivia
+		valsToKeep.separators[#valsToKeep] = nil
+		local constantToken = getConstantToken(valsToKeep[#valsToKeep])
+		if constantToken then
+			constantToken.trailingTrivia = statementTrailingTrivia
+		end
 	end
 end
 
-local function handleLeftoverTrivia(triviaToAppend: { { luau.Trivia } }, lastKeptStatement: luau.AstStat)
+local function handleLeftoverTrivia(triviaToAppend: { { cst.Trivia } }, lastKeptStatement: cst.CstStat)
 	if #triviaToAppend == 0 or not lastKeptStatement then
 		return
 	end
@@ -142,6 +163,7 @@ local function handleLeftoverTrivia(triviaToAppend: { { luau.Trivia } }, lastKep
 end
 
 return {
+	getConstantToken = getConstantToken,
 	storeStatementTrivia = storeStatementTrivia,
 	handleLeadingTriviaInsertion = handleLeadingTriviaInsertion,
 	handleVariableStatementTrivia = handleVariableStatementTrivia,

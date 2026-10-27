@@ -91,7 +91,7 @@ local function writePaths(data: SourcemapData, node: SourcemapNode, virtualPath:
 end
 
 local function parseSourcemap(path: string): SourcemapData
-	local contents = fs.readfiletostring(path)
+	local contents = fs.readFileToString(path)
 	local root = json.deserialize(contents) :: SourcemapNode
 	local data: SourcemapData = {
 		root = root,

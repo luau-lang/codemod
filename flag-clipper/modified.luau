@@ -31,15 +31,15 @@
 	modified by the flag clipping tool, to check for these cases.
 ]]
 
-local luau = require("@lute/luau")
+local cst = require("@lute/syntax/mutablecst")
 
 --- Check whether the given expression was modified by the flag-clipper tool
-local function isModified(expression: luau.AstExpr): boolean
+local function isModified(expression: cst.CstExpr): boolean
 	return (expression :: any)._modified == true
 end
 
 --- Mark the given expression as modified
-local function setModified(expression: luau.AstExpr)
+local function setModified(expression: cst.CstExpr)
 	(expression :: any)._modified = true
 end
 
