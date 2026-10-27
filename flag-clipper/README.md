@@ -4,10 +4,10 @@ Codemod to clean up references of a FFlag, either with a value of true or false
 
 ## Usage
 
-Follow the main [README](../README.md) instructions for how to install the codemod driver
+Follow the main [README](../README.md) instructions for how to install Lute and run codemods with `lute transform`
 
 ```
-$ lute codemod/main.luau ./codemod/flag-clipper --flag <name> --value <true> --sourcemap <path> <files...>
+$ lute transform codemod/flag-clipper/init.luau <files...> -- --flag <name> --value <true> --sourcemap <path>
 ```
 
 Options:

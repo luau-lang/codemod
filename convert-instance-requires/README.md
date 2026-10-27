@@ -5,10 +5,10 @@ to Luau string based requires (`require("./Module")`)
 
 ## Usage
 
-Follow the main [README](../README.md) instructions for how to install the codemod driver
+Follow the main [README](../README.md) instructions for how to install Lute and run codemods with `lute transform`
 
 ```
-$ lute codemod/main.luau ./codemod/convert-instance-requires --sourcemap <path> <files...>
+$ lute transform codemod/convert-instance-requires/init.luau <files...> -- --sourcemap <path>
 ```
 
 Options:
