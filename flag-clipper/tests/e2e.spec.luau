@@ -355,6 +355,22 @@ local function test_earlyLoopTermination()
 	assert(apply(source) == expected)
 end
 
+local function test_keepRequireNamedAsFlag()
+	local source = [[
+		local LaunchExperienceAction = require(Packages.Actions.LaunchExperienceAction)
+		if Flags.LaunchExperienceAction then
+			print("Flag on!")
+		end
+	]]
+
+	local expected = [[
+		local LaunchExperienceAction = require(Packages.Actions.LaunchExperienceAction)
+			print("Flag on!")
+	]]
+
+	assert(apply(source, "LaunchExperienceAction", true) == expected)
+end
+
 local function test_snapshots()
 	local baseDirectory = path.joinPath(process.cwd(), "flag-clipper/tests/snapshots")
 
@@ -424,5 +440,6 @@ return function()
 	test_cleanupFastFlagsForTesting()
 	test_cleanupEntriesFromTable()
 	test_earlyLoopTermination()
+	test_keepRequireNamedAsFlag()
 	test_snapshots()
 end

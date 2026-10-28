@@ -69,6 +69,16 @@ local function isCreateGetFFlagCall(expression: syntax.CstExpr)
 	return isSafeFlags(expression.expression) and expression.index.text == "createGetFFlag"
 end
 
+--- Whether an expression names a flags table, e.g. `Flags`, `FoundationFlags` or `Foundation.Utility.Flags`
+local function isFlagsTable(expression: syntax.CstExpr): boolean
+	local name = if expression.tag == "global"
+		then expression.name.text
+		elseif expression.tag == "local" then expression.token.text
+		elseif expression.tag == "indexname" then expression.index.text
+		else nil
+	return name ~= nil and string.sub(name, -#"Flags") == "Flags"
+end
+
 local function isFoundationFlagAccess(expression: syntax.CstExpr, flagName: string)
 	-- Handle direct flag calls: SafeFlags.createGetFFlag("flagName")()
 	if expression.tag == "call" then
@@ -83,7 +93,7 @@ local function isFoundationFlagAccess(expression: syntax.CstExpr, flagName: stri
 	-- Handle flag property access: Flags.FlagName (for assignments like Flags.FlagName = props.boolean)
 	if expression.tag == "indexname" then
 		local unversionedFlagName = flagName:gsub("%d+$", "")
-		return expression.index.text == unversionedFlagName
+		return expression.index.text == unversionedFlagName and isFlagsTable(expression.expression)
 	end
 
 	return false
