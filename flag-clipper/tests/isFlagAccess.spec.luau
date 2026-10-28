@@ -36,14 +36,14 @@ local function test_matchesFoundationBumpedFlagAccess()
 end
 
 local function test_matchesFoundationFlagsTableAccess()
-	assert(isFlagAccess(parser.parseExpr("Flags.SduiLaunchExperienceAction"), "SduiLaunchExperienceAction") == true)
+	assert(isFlagAccess(parser.parseExpr("Flags.LaunchExperienceAction"), "LaunchExperienceAction") == true)
 	assert(isFlagAccess(parser.parseExpr("FoundationFlags.FlagName"), "FlagName") == true)
 	assert(isFlagAccess(parser.parseExpr("Foundation.Utility.Flags.FlagName"), "FlagName") == true)
 end
 
 local function test_doesNotMatchRequirePathNamedAsFlag()
-	local expr = parser.parseExpr("ServerDrivenUi.Actions.SduiLaunchExperienceAction")
-	assert(isFlagAccess(expr, "SduiLaunchExperienceAction") == false)
+	local expr = parser.parseExpr("Packages.Actions.LaunchExperienceAction")
+	assert(isFlagAccess(expr, "LaunchExperienceAction") == false)
 end
 
 local function test_doesNotMatchNonFlagsIndex()

@@ -357,18 +357,18 @@ end
 
 local function test_keepRequireNamedAsFlag()
 	local source = [[
-		local SduiLaunchExperienceAction = require(ServerDrivenUi.Actions.SduiLaunchExperienceAction)
-		if Flags.SduiLaunchExperienceAction then
+		local LaunchExperienceAction = require(Packages.Actions.LaunchExperienceAction)
+		if Flags.LaunchExperienceAction then
 			print("Flag on!")
 		end
 	]]
 
 	local expected = [[
-		local SduiLaunchExperienceAction = require(ServerDrivenUi.Actions.SduiLaunchExperienceAction)
+		local LaunchExperienceAction = require(Packages.Actions.LaunchExperienceAction)
 			print("Flag on!")
 	]]
 
-	assert(apply(source, "SduiLaunchExperienceAction", true) == expected)
+	assert(apply(source, "LaunchExperienceAction", true) == expected)
 end
 
 local function test_snapshots()
