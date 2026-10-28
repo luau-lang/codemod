@@ -35,6 +35,23 @@ local function test_matchesFoundationBumpedFlagAccess()
 	assert(isFlagAccess(expr, "FlagName2") == true)
 end
 
+local function test_matchesFoundationFlagsTableAccess()
+	assert(isFlagAccess(parser.parseExpr("Flags.SduiLaunchExperienceAction"), "SduiLaunchExperienceAction") == true)
+	assert(isFlagAccess(parser.parseExpr("FoundationFlags.FlagName"), "FlagName") == true)
+	assert(isFlagAccess(parser.parseExpr("Foundation.Utility.Flags.FlagName"), "FlagName") == true)
+end
+
+local function test_doesNotMatchRequirePathNamedAsFlag()
+	local expr = parser.parseExpr("ServerDrivenUi.Actions.SduiLaunchExperienceAction")
+	assert(isFlagAccess(expr, "SduiLaunchExperienceAction") == false)
+end
+
+local function test_doesNotMatchNonFlagsIndex()
+	assert(isFlagAccess(parser.parseExpr("script.Parent.FlagName"), "FlagName") == false)
+	assert(isFlagAccess(parser.parseExpr("game.FlagName"), "FlagName") == false)
+	assert(isFlagAccess(parser.parseExpr("props.FlagName"), "FlagName") == false)
+end
+
 local function test_matchesSetFastFlagForTesting()
 	local expr = parser.parseExpr('game:SetFastFlagForTesting("FlagName")')
 	assert(isFlagAccess(expr, "FlagName") == true)
@@ -52,6 +69,9 @@ return function()
 	test_matchesUIBloxFlagAccess()
 	test_matchesFoundationFlagAccess()
 	test_matchesFoundationBumpedFlagAccess()
+	test_matchesFoundationFlagsTableAccess()
+	test_doesNotMatchRequirePathNamedAsFlag()
+	test_doesNotMatchNonFlagsIndex()
 	test_matchesSetFastFlagForTesting()
 	test_matchesScopedFFlag()
 end
