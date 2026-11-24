@@ -30,9 +30,12 @@ local function test_matchesFoundationFlagAccess()
 	assert(isFlagAccess(expr, "FlagName") == true)
 end
 
-local function test_matchesFoundationBumpedFlagAccess()
-	local expr = parser.parseExpr("Flags.FlagName")
-	assert(isFlagAccess(expr, "FlagName2") == true)
+local function test_doesNotMatchUnrelatedIndexWithSameName()
+	for _, source in { "policy.FlagName", "Flags.FlagName", "a.b.FlagName" } do
+		local expr = parser.parseExpr(source)
+		assert(isFlagAccess(expr, "FlagName") == false)
+		assert(isFlagAccess(expr, "FlagName2") == false)
+	end
 end
 
 local function test_matchesSetFastFlagForTesting()
@@ -51,7 +54,7 @@ return function()
 	test_doesNotMatchAccessWithDifferentName()
 	test_matchesUIBloxFlagAccess()
 	test_matchesFoundationFlagAccess()
-	test_matchesFoundationBumpedFlagAccess()
+	test_doesNotMatchUnrelatedIndexWithSameName()
 	test_matchesSetFastFlagForTesting()
 	test_matchesScopedFFlag()
 end

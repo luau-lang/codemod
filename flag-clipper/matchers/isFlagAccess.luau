@@ -80,11 +80,10 @@ local function isFoundationFlagAccess(expression: syntax.CstExpr, flagName: stri
 		end
 	end
 
-	-- Handle flag property access: Flags.FlagName (for assignments like Flags.FlagName = props.boolean)
-	if expression.tag == "indexname" then
-		local unversionedFlagName = flagName:gsub("%d+$", "")
-		return expression.index.text == unversionedFlagName
-	end
+	-- NOTE: property accesses on the flags table (Flags.FlagName) are intentionally NOT matched here.
+	-- Matching on the index name alone also matches unrelated tables with a same-named field
+	-- (e.g. `policy.FlagName`). Those accesses are resolved via require tracing instead:
+	-- the Flags module's table entry is tracked by its createGetFFlag call, see TrackReferences.
 
 	return false
 end
